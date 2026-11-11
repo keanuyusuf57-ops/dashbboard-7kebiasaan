@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { Volume2, VolumeX } from 'lucide-react'
 
 type Option = {
   text: string
@@ -285,7 +286,7 @@ export default function GameKuisPage() {
     setTimeout(() => setCopiedText(false), 3000)
   }
 
-  // FUNGSI GENERATE GAMBAR POSTER PNG (SELARAS WARNA KUIS + KARAKTER MASKOT HD)
+  // FUNGSI GENERATE GAMBAR POSTER PNG
   const downloadResultCard = () => {
     playSound('click')
     const canvas = canvasRef.current
@@ -293,20 +294,16 @@ export default function GameKuisPage() {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    // Canvas Resolusi Tinggi Vertikal (640 x 960 px)
     canvas.width = 640
     canvas.height = 960
 
-    // 1. Latar Belakang Selaras Tema Kuis (#F0F9F4 Soft Emerald)
     ctx.fillStyle = '#F0F9F4'
     ctx.fillRect(0, 0, 640, 960)
 
-    // Frame/Border Luar Poster Hijau Kebiasaan
     ctx.strokeStyle = '#2ECC71'
     ctx.lineWidth = 6
     ctx.strokeRect(16, 16, 608, 928)
 
-    // Aksen Ornamen Lingkaran Dekoratif Soft Green
     ctx.fillStyle = 'rgba(46, 204, 113, 0.08)'
     ctx.beginPath()
     ctx.arc(520, 100, 160, 0, Math.PI * 2)
@@ -315,21 +312,16 @@ export default function GameKuisPage() {
     ctx.arc(100, 880, 200, 0, Math.PI * 2)
     ctx.fill()
 
-    // 2. Header Title "7 KEBIASAAN ANAK HEBAT" (Typography Khas Poster)
     ctx.textAlign = 'center'
-    
-    // Angka "7" Hijau Emerald Kuis
     ctx.fillStyle = '#27AE60'
     ctx.font = '900 76px "Arial Black", sans-serif'
     ctx.fillText('7', 110, 92)
 
-    // Teks 2 Baris Hijau Tua #1E8449
     ctx.fillStyle = '#1E8449'
     ctx.font = '900 32px "Arial Black", sans-serif'
     ctx.fillText('KEBIASAAN', 340, 78)
     ctx.fillText('ANAK HEBAT', 340, 114)
 
-    // Badge Subtitle Profil Siswa
     ctx.fillStyle = '#E8F8F5'
     ctx.beginPath()
     ctx.roundRect(80, 134, 480, 36, 18)
@@ -338,12 +330,10 @@ export default function GameKuisPage() {
     ctx.font = 'bold 15px sans-serif'
     ctx.fillText(`PROFIL: ${resultTitle.toUpperCase()}`, 320, 157)
 
-    // 3. Menggambar Karakter Maskot Kuis Daun HD di Canvas
     const drawCanvasMascot = (cX: number, cY: number) => {
       ctx.save()
       ctx.translate(cX, cY)
 
-      // Badan Daun (Emerald Green)
       ctx.fillStyle = '#80C242'
       ctx.strokeStyle = '#468826'
       ctx.lineWidth = 4
@@ -352,41 +342,35 @@ export default function GameKuisPage() {
       ctx.fill()
       ctx.stroke()
 
-      // Tangkai Atas
       ctx.fillStyle = '#468826'
       ctx.beginPath()
       ctx.ellipse(0, -42, 6, 12, 0, 0, Math.PI * 2)
       ctx.fill()
 
-      // Mata Berbinar
       ctx.fillStyle = '#1C2D42'
       ctx.beginPath()
       ctx.arc(-14, -6, 7, 0, Math.PI * 2)
       ctx.arc(14, -6, 7, 0, Math.PI * 2)
       ctx.fill()
 
-      // Kilau Mata Putih
       ctx.fillStyle = '#FFFFFF'
       ctx.beginPath()
       ctx.arc(-16, -8, 2.5, 0, Math.PI * 2)
       ctx.arc(12, -8, 2.5, 0, Math.PI * 2)
       ctx.fill()
 
-      // Pipi Merona
       ctx.fillStyle = 'rgba(255, 118, 117, 0.8)'
       ctx.beginPath()
       ctx.arc(-22, 4, 5, 0, Math.PI * 2)
       ctx.arc(22, 4, 5, 0, Math.PI * 2)
       ctx.fill()
 
-      // Senyum Manis
       ctx.strokeStyle = '#3A6E1F'
       ctx.lineWidth = 3
       ctx.beginPath()
       ctx.arc(0, 2, 10, 0.2, Math.PI - 0.2)
       ctx.stroke()
 
-      // Aksesoris Bintang Mas di Samping Maskot
       ctx.fillStyle = '#F1C40F'
       ctx.beginPath()
       ctx.arc(38, -30, 8, 0, Math.PI * 2)
@@ -395,7 +379,6 @@ export default function GameKuisPage() {
       ctx.restore()
     }
 
-    // 4. Helper Fungsi Menggambar Hexagon Sarang Lebah
     const drawHexagon = (
       x: number, 
       y: number, 
@@ -422,7 +405,6 @@ export default function GameKuisPage() {
       ctx.lineWidth = isActive ? 4 : 2
       ctx.stroke()
 
-      // Teks Kebiasaan di Dalam Hexagon
       ctx.fillStyle = isActive ? '#FFFFFF' : '#2C3E50'
       ctx.font = isActive ? 'bold 13px sans-serif' : '11px sans-serif'
       ctx.textAlign = 'center'
@@ -431,10 +413,9 @@ export default function GameKuisPage() {
       ctx.restore()
     }
 
-    // 5. Grid Hexagon Sarang Lebah (7 Kebiasaan)
     const centerX = 320
     const centerY = 370
-    const r = 68 // Radius Hexagon
+    const r = 68
 
     const habits = [
       { name: 'Taat Beribadah', x: centerX, y: centerY, isCenter: true },
@@ -453,10 +434,8 @@ export default function GameKuisPage() {
       drawHexagon(h.x, h.y, r, fillColor, strokeColor, h.name, isHighlighted)
     })
 
-    // Lukis Karakter Maskot tepat di atas Hexagon Pusat
     drawCanvasMascot(centerX, centerY)
 
-    // 6. Kartu Putih Informasi & Tips (Bagian Bawah)
     const boxY = 575
     ctx.fillStyle = '#FFFFFF'
     ctx.strokeStyle = '#2ECC71'
@@ -466,7 +445,6 @@ export default function GameKuisPage() {
     ctx.fill()
     ctx.stroke()
 
-    // Deskripsi Profil
     ctx.fillStyle = '#1E8449'
     ctx.font = 'bold 15px sans-serif'
     ctx.textAlign = 'left'
@@ -491,7 +469,6 @@ export default function GameKuisPage() {
     }
     ctx.fillText(line, 65, lineY)
 
-    // Action Tip Utama
     if (personalTips.length > 0) {
       ctx.fillStyle = '#27AE60'
       ctx.font = 'bold 13px sans-serif'
@@ -501,7 +478,6 @@ export default function GameKuisPage() {
       ctx.fillText(personalTips[0], 65, lineY + 52)
     }
 
-    // Badge Refleksi Diri (Pola Karakter)
     ctx.fillStyle = '#E8F8F5'
     ctx.beginPath()
     ctx.roundRect(65, boxY + 190, 510, 42, 12)
@@ -510,13 +486,11 @@ export default function GameKuisPage() {
     ctx.font = 'bold 13px sans-serif'
     ctx.fillText(`🧠 Status Refleksi: ${awarenessLevel}`, 80, boxY + 216)
 
-    // 7. Footer Resmi Sekolah
     ctx.fillStyle = '#7F8C8D'
     ctx.font = 'bold 12px sans-serif'
     ctx.textAlign = 'center'
     ctx.fillText('SMAN 5 SEMARANG — GERAKAN 7 KEBIASAAN ANAK INDONESIA HEBAT', 320, 885)
 
-    // Download PNG
     const imageURI = canvas.toDataURL('image/png')
     const link = document.createElement('a')
     link.download = `Poster_7Kebiasaan_${resultTitle.replace(/[^a-zA-Z0-9]/g, '_')}.png`
@@ -562,191 +536,214 @@ export default function GameKuisPage() {
   const currentQ = currentQuestions[currentIndex]
 
   return (
-    <div className="min-h-screen bg-[#F0F9F4] flex items-center justify-center p-4">
-      {/* Element Canvas tersembunyi untuk perakit poster PNG */}
+    <div className="flex bg-slate-50 min-h-screen p-4 gap-6 font-sans">
+      {/* Element Canvas Tersembunyi */}
       <canvas ref={canvasRef} className="hidden" />
 
-      <div className="bg-white w-full max-w-xl rounded-3xl border-4 border-[#2ECC71] shadow-xl p-6 sm:p-8 space-y-6 relative overflow-hidden">
-        {/* TOP BAR: TIMER & AUDIO TOGGLE */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="bg-[#E8F8F5] text-[#1E8449] border border-[#2ECC71] py-1.5 px-4 rounded-full text-xs font-semibold text-center flex-1">
-            {timerText}
+      {/* Konten Utama Kuis Game */}
+      <main className="flex-1 space-y-6">
+        {/* Top Header Controls (Timer Rotasi & Audio FX) */}
+        <header className="flex flex-wrap items-center justify-between bg-white p-4 px-6 rounded-2xl shadow-sm border border-slate-100 gap-4">
+          <div className="bg-indigo-50 text-indigo-700 px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2">
+            <span>{timerText}</span>
           </div>
           <button
             onClick={() => setIsMuted(!isMuted)}
-            className="bg-emerald-100 hover:bg-emerald-200 text-[#1E8449] p-1.5 rounded-full text-xs font-bold transition-all px-3 flex items-center gap-1"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all"
           >
-            {isMuted ? '🔇 Audio Off' : '🔊 Audio On'}
+            {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+            <span>{isMuted ? 'Audio Off' : 'Audio On'}</span>
           </button>
-        </div>
+        </header>
 
-        {/* 1. LAYAR UTAMA */}
-        {screen === 'start' && (
-          <div className="text-center space-y-5">
-            <MascotSVG />
-            <h1 className="text-2xl font-extrabold text-[#1E8449]">Tipe Kebiasaan Hebatmu</h1>
-            <p className="text-sm text-gray-600 font-medium">
-              Jawab 10 pertanyaan santai untuk menemukan tipe karakter 7 Kebiasaan Anak Indonesia Hebat!
-            </p>
-            <button
-              onClick={startGame}
-              className="w-full bg-[#27AE60] hover:bg-[#1E8449] text-white font-bold py-3.5 rounded-2xl shadow-lg transition-all text-base"
-            >
-              Mulai Kuis Sekarang
-            </button>
-          </div>
-        )}
+        {/* Card Utama Game Kuis */}
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 sm:p-8 space-y-6">
 
-        {/* 2. LAYAR KUIS */}
-        {screen === 'quiz' && (
-          <div className="space-y-6">
-            <div className="w-full bg-gray-200 h-2.5 rounded-full overflow-hidden">
-              <div
-                className="bg-[#2ECC71] h-full transition-all duration-300"
-                style={{
-                  width: `${((currentIndex + 1) / (currentQuestions.length || 1)) * 100}%`,
-                }}
-              ></div>
+          {/* 1. LAYAR UTAMA (START) */}
+          {screen === 'start' && (
+            <div className="text-center space-y-5 max-w-lg mx-auto py-4">
+              <MascotSVG />
+              <h1 className="text-2xl font-extrabold text-slate-800">Tipe Kebiasaan Hebatmu</h1>
+              <p className="text-sm text-slate-600 font-medium leading-relaxed">
+                Jawab 10 pertanyaan santai untuk menemukan tipe karakter 7 Kebiasaan Anak Indonesia Hebat!
+              </p>
+              <button
+                onClick={startGame}
+                className="w-full bg-gradient-to-r from-indigo-600 via-purple-600 to-blue-500 hover:opacity-95 text-white font-bold py-4 rounded-2xl shadow-md transition-all text-base"
+              >
+                Mulai Kuis Sekarang 🚀
+              </button>
             </div>
+          )}
 
-            <div className="text-xs font-bold text-gray-400 text-right">
-              Pertanyaan {currentIndex + 1}/{currentQuestions.length || 10}
+          {/* 2. LAYAR KUIS (QUIZ) */}
+          {screen === 'quiz' && (
+            <div className="space-y-6 max-w-xl mx-auto">
+              <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
+                <div
+                  className="bg-gradient-to-r from-indigo-500 to-purple-500 h-full transition-all duration-300"
+                  style={{
+                    width: `${((currentIndex + 1) / (currentQuestions.length || 1)) * 100}%`,
+                  }}
+                />
+              </div>
+
+              <div className="text-xs font-bold text-slate-400 text-right">
+                Pertanyaan {currentIndex + 1}/{currentQuestions.length || 10}
+              </div>
+
+              {loading ? (
+                <p className="text-center italic text-slate-500 py-12">Memuat pertanyaan dari database...</p>
+              ) : currentQ ? (
+                <div className="space-y-6">
+                  <h2 className="text-lg font-bold text-slate-800 text-center min-h-[60px] flex items-center justify-center leading-snug">
+                    {currentQ.pertanyaan}
+                  </h2>
+
+                  <div className="flex flex-col gap-3">
+                    {[currentQ.opsi_a, currentQ.opsi_b, currentQ.opsi_c].map((opt, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => selectOption(opt)}
+                        className="w-full text-left bg-slate-50 hover:bg-indigo-50/70 border border-slate-200 hover:border-indigo-300 text-slate-700 p-4 rounded-2xl text-sm font-semibold transition-all hover:-translate-y-0.5"
+                      >
+                        {opt.text}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </div>
+          )}
 
-            {loading ? (
-              <p className="text-center italic text-gray-500 py-8">Memuat pertanyaan dari database...</p>
-            ) : currentQ ? (
-              <div className="space-y-6">
-                <h2 className="text-lg font-bold text-gray-900 text-center min-h-[60px] flex items-center justify-center">
-                  {currentQ.pertanyaan}
-                </h2>
+          {/* 3. LAYAR HASIL (RESULT) */}
+          {screen === 'result' && (
+            <div className="space-y-6 max-w-2xl mx-auto">
+              <div className="text-center space-y-4">
+                <MascotSVG variant={resultTitle.includes('Cerdas') ? 'reading' : 'star'} />
+                <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-3.5 py-1.5 rounded-full uppercase">
+                  Profil Kebiasaan Kamu
+                </span>
+                <h2 className="text-2xl font-extrabold text-slate-800">{resultTitle}</h2>
+                <div className="bg-indigo-50/50 p-4 rounded-2xl text-xs sm:text-sm text-slate-700 font-medium leading-relaxed">
+                  {resultDesc}
+                </div>
+              </div>
 
-                <div className="flex flex-col gap-3">
-                  {[currentQ.opsi_a, currentQ.opsi_b, currentQ.opsi_c].map((opt, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => selectOption(opt)}
-                      className="w-full text-left bg-white border-2 border-[#2ECC71] hover:bg-[#E8F8F5] text-gray-800 p-4 rounded-xl text-sm font-semibold transition-all hover:-translate-y-0.5"
-                    >
-                      {opt.text}
-                    </button>
+              {/* BADGE KESADARAN DIRI */}
+              <div className="bg-purple-50 border border-purple-100 rounded-2xl p-4 text-center space-y-1">
+                <p className="text-purple-700 text-xs font-extrabold uppercase tracking-wider">
+                  🧠 Indikator Refleksi Kebiasaan
+                </p>
+                <p className="text-sm font-extrabold text-purple-900">
+                  Pola Karakter: <span className="text-purple-600">{awarenessLevel}</span>
+                </p>
+                <p className="text-xs text-slate-600 leading-normal">
+                  {awarenessDesc}
+                </p>
+              </div>
+
+              {/* KARTU STATISTIK KOMUNITAS REAL-TIME */}
+              {communityPercentage !== null && (
+                <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl p-4 text-center space-y-1 shadow-md">
+                  <p className="text-xs font-medium text-indigo-100 uppercase tracking-wider">
+                    📊 Statistik Teman Sekolah
+                  </p>
+                  <p className="text-base sm:text-lg font-black">
+                    <span className="text-yellow-300 text-xl font-black">{communityPercentage}%</span> siswa SMAN 5 Semarang juga bertipe {resultTitle}!
+                  </p>
+                  <p className="text-[11px] text-indigo-200 italic">
+                    (Dihitung dari {totalPlayers} total penyelesaian kuis)
+                  </p>
+                </div>
+              )}
+
+              {/* SARAN PERSONAL (TIPS SANTAI) */}
+              <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 space-y-3">
+                <h3 className="text-xs font-extrabold text-indigo-700 uppercase tracking-wider flex items-center gap-1.5">
+                  📌 Tips Kebiasaan Buat Kamu
+                </h3>
+                <ul className="space-y-2">
+                  {personalTips.map((tip, idx) => (
+                    <li key={idx} className="text-xs sm:text-sm text-slate-700 font-medium leading-normal">
+                      {tip}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* RINGKASAN JAWABAN SISWA */}
+              <div className="space-y-3 pt-2">
+                <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">
+                  📝 Ringkasan Jawaban Kamu ({userAnswers.length} Soal)
+                </h3>
+                <div className="max-h-56 overflow-y-auto space-y-2.5 pr-1 text-left">
+                  {userAnswers.map((ans, idx) => (
+                    <div key={idx} className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-1">
+                      <p className="text-xs font-bold text-slate-800">
+                        {idx + 1}. {ans.questionText}
+                      </p>
+                      <p className="text-xs font-semibold text-indigo-700 bg-indigo-50 py-1 px-2.5 rounded-lg inline-block">
+                        Pilihanmu: {ans.selectedOptionText}
+                      </p>
+                    </div>
                   ))}
                 </div>
               </div>
-            ) : null}
-          </div>
-        )}
 
-        {/* 3. LAYAR HASIL */}
-        {screen === 'result' && (
-          <div className="space-y-6">
-            <div className="text-center space-y-4">
-              <MascotSVG variant={resultTitle.includes('Cerdas') ? 'reading' : 'star'} />
-              <span className="text-xs font-bold text-[#1E8449] bg-[#E8F8F5] px-3 py-1 rounded-full uppercase">
-                Profil Kebiasaan Kamu
-              </span>
-              <h2 className="text-xl font-extrabold text-[#1E8449]">{resultTitle}</h2>
-              <div className="bg-[#E8F8F5] p-4 rounded-2xl text-xs sm:text-sm text-gray-700 font-medium leading-relaxed">
-                {resultDesc}
-              </div>
-            </div>
-
-            {/* BADGE KESADARAN DIRI */}
-            <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 text-center space-y-1">
-              <p className="text-[#1E8449] text-xs font-extrabold uppercase tracking-wider">
-                🧠 Indikator Refleksi Kebiasaan
-              </p>
-              <p className="text-sm font-extrabold text-blue-900">
-                Pola Karakter: <span className="text-blue-600">{awarenessLevel}</span>
-              </p>
-              <p className="text-xs text-gray-600 leading-normal">
-                {awarenessDesc}
-              </p>
-            </div>
-
-            {/* KARTU STATISTIK KOMUNITAS REAL-TIME */}
-            {communityPercentage !== null && (
-              <div className="bg-emerald-600 text-white rounded-2xl p-4 text-center space-y-1 shadow-md">
-                <p className="text-xs font-medium text-emerald-100 uppercase tracking-wider">
-                  📊 Statistik Teman Sekolah
-                </p>
-                <p className="text-base sm:text-lg font-black">
-                  <span className="text-yellow-300 text-xl font-black">{communityPercentage}%</span> siswa SMAN 5 Semarang juga bertipe {resultTitle}!
-                </p>
-                <p className="text-[11px] text-emerald-100 italic">
-                  (Dihitung dari {totalPlayers} total penyelesaian kuis)
-                </p>
-              </div>
-            )}
-
-            {/* SARAN PERSONAL (TIPS SANTAI) */}
-            <div className="bg-emerald-50/70 border border-emerald-200 rounded-2xl p-4 space-y-3">
-              <h3 className="text-xs font-extrabold text-[#1E8449] uppercase tracking-wider flex items-center gap-1.5">
-                📌 Tips Kebiasaan Buat Kamu
-              </h3>
-              <ul className="space-y-2">
-                {personalTips.map((tip, idx) => (
-                  <li key={idx} className="text-xs sm:text-sm text-gray-700 font-medium leading-normal">
-                    {tip}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* RINGKASAN JAWABAN SISWA */}
-            <div className="space-y-3 pt-2">
-              <h3 className="text-xs font-extrabold text-gray-500 uppercase tracking-wider">
-                📝 Ringkasan Jawaban Kamu ({userAnswers.length} Soal)
-              </h3>
-              <div className="max-h-56 overflow-y-auto space-y-2.5 pr-1 text-left">
-                {userAnswers.map((ans, idx) => (
-                  <div key={idx} className="p-3 bg-gray-50 rounded-xl border border-gray-200 space-y-1">
-                    <p className="text-xs font-bold text-gray-800">
-                      {idx + 1}. {ans.questionText}
-                    </p>
-                    <p className="text-xs font-semibold text-emerald-700 bg-emerald-100/60 py-1 px-2.5 rounded-lg inline-block">
-                      Pilihanmu: {ans.selectedOptionText}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* TOMBOL AKSI */}
-            <div className="space-y-3 pt-2">
-              <button
-                onClick={() => router.push(`/survey?result_id=${savedResultId || ''}&profile=${encodeURIComponent(resultTitle)}`)}
-                className="w-full bg-[#27AE60] hover:bg-[#1E8449] text-white font-bold py-3.5 rounded-2xl shadow-lg transition-all text-sm"
-              >
-                Lanjutkan ke Web Survei Utama 🚀
-              </button>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {/* TOMBOL AKSI */}
+              <div className="space-y-3 pt-2">
                 <button
-                  onClick={downloadResultCard}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-2xl transition-all text-xs shadow"
+                  onClick={() => router.push(`/survey?result_id=${savedResultId || ''}&profile=${encodeURIComponent(resultTitle)}`)}
+                  className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:opacity-95 text-white font-bold py-3.5 rounded-2xl shadow-md transition-all text-sm"
                 >
-                  🖼️ Unduh Poster (PNG)
+                  Lanjutkan ke Web Survei Utama 🚀
                 </button>
 
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button
+                    onClick={downloadResultCard}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-2xl transition-all text-xs shadow-sm"
+                  >
+                    🖼️ Unduh Poster (PNG)
+                  </button>
+
+                  <button
+                    onClick={copyShareText}
+                    className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 rounded-2xl transition-all text-xs shadow-sm"
+                  >
+                    {copiedText ? '✅ Teks Disalin!' : '📤 Salin Teks Profil'}
+                  </button>
+                </div>
+
                 <button
-                  onClick={copyShareText}
-                  className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 rounded-2xl transition-all text-xs shadow"
+                  onClick={startGame}
+                  className="w-full bg-white border-2 border-indigo-200 hover:bg-indigo-50 text-indigo-700 font-bold py-3 rounded-2xl transition-all text-sm"
                 >
-                  {copiedText ? '✅ Teks Disalin!' : '📤 Salin Teks Profil'}
+                  🔄 Ulangi Kuis
                 </button>
               </div>
-
-              <button
-                onClick={startGame}
-                className="w-full bg-white border-2 border-[#2ECC71] hover:bg-[#E8F8F5] text-[#1E8449] font-bold py-3 rounded-2xl transition-all text-sm"
-              >
-                🔄 Ulangi Kuis
-              </button>
             </div>
+          )}
+        </div>
+      </main>
+
+      {/* Panel Statistik Kanan */}
+      <aside className="w-80 space-y-6 hidden xl:block">
+        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+          <h3 className="font-bold text-slate-800 text-base mb-4">Aktivitas Komunitas</h3>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-slate-600">Total Siswa Berpartisipasi</span>
+              <span className="font-bold text-indigo-600">1,245 Siswa</span>
+            </div>
+            <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+              <div className="bg-gradient-to-r from-indigo-500 to-purple-500 h-full w-[78%]" />
+            </div>
+            <p className="text-[11px] text-slate-400">78% dari total siswa aktif minggu ini</p>
           </div>
-        )}
-      </div>
+        </div>
+      </aside>
     </div>
   )
 }

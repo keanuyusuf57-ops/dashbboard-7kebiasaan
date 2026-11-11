@@ -1,47 +1,49 @@
-import { createClient } from '@/lib/supabase/server'
-import { connection } from 'next/server'
+"use client"
+
 import Link from 'next/link'
+import { Sparkles, ArrowRight } from 'lucide-react'
 
-export default async function HeroSection() {
-  // Memberitahu Next.js 16 bahwa komponen ini dipanggil per-koneksi request
-  await connection()
-
-  const supabase = await createClient()
-  const { data: config } = await supabase.from('home_config').select('*').limit(1).maybeSingle()
-
+export default function HeroSection() {
   return (
-    <section className="relative h-[480px] flex items-center justify-center text-white overflow-hidden bg-gray-900">
-      {config?.hero_media_type === 'video' ? (
-        <video
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="absolute inset-0 w-full h-full object-cover opacity-40"
-          src={config.hero_media_url}
-        />
-      ) : (
-        <img
-          src={config?.hero_media_url || '/hero-placeholder.jpg'}
-          alt="Hero Background"
-          className="absolute inset-0 w-full h-full object-cover opacity-40"
-        />
-      )}
+    <div className="relative overflow-hidden bg-gradient-to-br from-indigo-950 via-purple-900 to-slate-900 text-white rounded-3xl p-8 md:p-12 shadow-2xl border border-indigo-500/20 my-6">
+      {/* Background Glow Overlay */}
+      <div className="absolute -top-24 -right-24 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none" />
 
-      <div className="relative z-10 text-center max-w-3xl px-4">
-        <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight mb-4 leading-tight text-white">
-          {config?.hero_title || 'Penilaian 7 Kebiasaan Anak Indonesia Hebat'}
+      <div className="relative z-10 max-w-3xl space-y-6">
+        {/* Badge Identitas SMAN 5 Semarang */}
+        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-indigo-200 text-xs font-medium">
+          <Sparkles size={14} className="text-purple-300" />
+          <span>7 KAIH • SMAN 5 Semarang</span>
+        </div>
+
+        {/* Judul Utama */}
+        <h1 className="text-4xl md:text-5xl font-black tracking-tight leading-tight bg-gradient-to-r from-white via-indigo-100 to-purple-200 bg-clip-text text-transparent">
+          7 Kebiasaan Anak Indonesia Hebat
         </h1>
-        <p className="text-lg sm:text-xl text-gray-200 mb-8 font-medium">
-          {config?.hero_subtitle || 'Gerakan Karakter Unggul Siswa-Siswi SMAN 5 Semarang'}
+
+        {/* Deskripsi Singkat */}
+        <p className="text-sm md:text-base text-indigo-100/80 leading-relaxed max-w-2xl">
+          Panduan kebiasaan positif menurut Kementerian Pendidikan Dasar dan Menengah (Kemendikdasmen) untuk membentuk generasi yang berkarakter, mandiri, dan berdaya saing di SMAN 5 Semarang.
         </p>
-        <Link
-          href="/survey"
-          className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 py-3.5 rounded-xl shadow-lg transition-transform hover:scale-105"
-        >
-          Isi Survey Sekarang
-        </Link>
+
+        {/* Tombol Aksi (Preservasi fitur asli) */}
+        <div className="flex flex-wrap gap-4 pt-2">
+          <Link
+            href="/survey"
+            className="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold text-sm px-6 py-3.5 rounded-2xl shadow-lg shadow-indigo-500/30 hover:scale-[1.02] active:scale-95 transition-all"
+          >
+            <span>Isi Survey Sekarang</span>
+            <ArrowRight size={16} />
+          </Link>
+          <Link
+            href="/game"
+            className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md border border-white/20 text-white font-bold text-sm px-6 py-3.5 rounded-2xl hover:bg-white/20 transition-all"
+          >
+            <span>Mainkan Kuis Game 🎮</span>
+          </Link>
+        </div>
       </div>
-    </section>
+    </div>
   )
 }
