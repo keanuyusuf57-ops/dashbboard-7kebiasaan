@@ -8,8 +8,6 @@ import {
   Search,
   BarChart3,
   UserCheck,
-  Menu,
-  X,
   MousePointerClick,
   Sparkles,
 } from 'lucide-react'
@@ -61,9 +59,8 @@ const INDICATOR_DETAILS = [
   },
 ]
 
-function Sidebar({ logoUrl }: { logoUrl: string }) {
+function DesktopSidebar({ logoUrl }: { logoUrl: string }) {
   const pathname = usePathname()
-  const [mobileOpen, setMobileOpen] = useState(false)
 
   const navItems = [
     { label: 'Beranda', href: '/' },
@@ -74,8 +71,8 @@ function Sidebar({ logoUrl }: { logoUrl: string }) {
     { label: 'Admin', href: '/admin' },
   ]
 
-  const NavContent = () => (
-    <>
+  return (
+    <aside className="w-64 bg-white rounded-3xl shadow-sm border border-slate-100 p-5 hidden lg:flex flex-col shrink-0">
       <div className="flex items-center gap-3.5 pb-4 border-b border-slate-100">
         {logoUrl ? (
           <img
@@ -101,7 +98,6 @@ function Sidebar({ logoUrl }: { logoUrl: string }) {
             <Link
               key={item.label}
               href={item.href}
-              onClick={() => setMobileOpen(false)}
               className={`block w-full text-left px-4 py-3 rounded-2xl text-sm font-semibold transition-all ${
                 isActive
                   ? 'bg-indigo-600 text-white shadow-sm'
@@ -113,36 +109,7 @@ function Sidebar({ logoUrl }: { logoUrl: string }) {
           )
         })}
       </nav>
-    </>
-  )
-
-  return (
-    <>
-      <button
-        onClick={() => setMobileOpen(true)}
-        className="lg:hidden fixed bottom-5 right-5 z-40 bg-indigo-600 text-white p-3.5 rounded-full shadow-lg"
-        aria-label="Buka Navigasi"
-      >
-        <Menu size={22} />
-      </button>
-
-      {mobileOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm lg:hidden flex">
-          <div className="w-72 bg-white h-full p-5 flex flex-col">
-            <div className="flex justify-end mb-2">
-              <button onClick={() => setMobileOpen(false)} className="p-2 text-slate-500">
-                <X size={20} />
-              </button>
-            </div>
-            <NavContent />
-          </div>
-        </div>
-      )}
-
-      <aside className="w-64 bg-white rounded-3xl shadow-sm border border-slate-100 p-5 hidden lg:flex flex-col shrink-0">
-        <NavContent />
-      </aside>
-    </>
+    </aside>
   )
 }
 
@@ -160,25 +127,25 @@ function InteractiveDonutChart({
     <div
       onClick={() => setShowScoreMode(!showScoreMode)}
       title="Klik untuk mengganti tampilan Persentase / Skor Rata-Rata"
-      className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 cursor-pointer hover:border-indigo-300 hover:shadow-md transition-all select-none group"
+      className="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-slate-100 cursor-pointer hover:border-indigo-300 hover:shadow-md transition-all select-none group"
     >
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="font-bold text-slate-800 text-lg group-hover:text-indigo-600 transition-colors">
+          <h3 className="font-bold text-slate-800 text-base sm:text-lg group-hover:text-indigo-600 transition-colors">
             Progress Kebiasaan
           </h3>
           <p className="text-xs text-slate-500 flex items-center gap-1">
-            <MousePointerClick size={12} className="text-indigo-500" />
-            Klik grafik untuk ubah mode tampilan
+            <MousePointerClick size={12} className="text-indigo-500 shrink-0" />
+            <span>Ketuk grafik untuk ubah mode tampilan</span>
           </p>
         </div>
-        <span className="bg-indigo-50 text-indigo-600 text-xs font-bold px-3 py-1 rounded-full">
+        <span className="bg-indigo-50 text-indigo-600 text-xs font-bold px-3 py-1 rounded-full shrink-0">
           {showScoreMode ? `${overallScore.toFixed(2)} / 5.0` : `${safeCompletion}%`}
         </span>
       </div>
 
-      <div className="flex items-center justify-center py-4">
-        <div className="relative h-44 w-44 transition-transform duration-300 group-hover:scale-105">
+      <div className="flex items-center justify-center py-3 sm:py-4">
+        <div className="relative h-40 w-40 sm:h-44 sm:w-44 transition-transform duration-300 group-hover:scale-105">
           <div className="absolute inset-0 rounded-full bg-slate-100" />
           <div
             className="absolute inset-0 rounded-full transition-all duration-700"
@@ -188,7 +155,7 @@ function InteractiveDonutChart({
           />
           <div className="absolute inset-4 rounded-full bg-white shadow-inner flex items-center justify-center">
             <div className="text-center">
-              <div className="text-3xl font-extrabold text-slate-800">
+              <div className="text-2xl sm:text-3xl font-extrabold text-slate-800">
                 {showScoreMode ? overallScore.toFixed(1) : `${safeCompletion}%`}
               </div>
               <div className="text-[11px] font-semibold text-slate-500">
@@ -202,11 +169,11 @@ function InteractiveDonutChart({
       <div className="grid grid-cols-2 gap-3 mt-2">
         <div className="bg-slate-50 p-3 rounded-2xl">
           <p className="text-[10px] uppercase tracking-wide text-slate-400">Dimensi</p>
-          <p className="font-bold text-slate-800 mt-1">7 Kebiasaan</p>
+          <p className="font-bold text-slate-800 text-sm sm:text-base mt-1">7 Kebiasaan</p>
         </div>
         <div className="bg-indigo-50 p-3 rounded-2xl">
           <p className="text-[10px] uppercase tracking-wide text-indigo-500">Status</p>
-          <p className="font-bold text-indigo-700 mt-1">Aktif • SMAN 5</p>
+          <p className="font-bold text-indigo-700 text-sm sm:text-base mt-1">Aktif • SMAN 5</p>
         </div>
       </div>
     </div>
@@ -326,23 +293,25 @@ export default function HomePage() {
   )
 
   return (
-    <div className="flex bg-slate-50 min-h-screen p-4 gap-6 font-sans">
-      <Sidebar logoUrl={nexaraLogoUrl} />
+    <div className="flex bg-slate-50 min-h-screen p-3 sm:p-4 gap-6 font-sans">
+      {/* Sidebar hanya untuk Desktop; navigasi HP sudah ditangani otomatis oleh layout.tsx */}
+      <DesktopSidebar logoUrl={nexaraLogoUrl} />
 
-      <main className="flex-1 space-y-6 min-w-0">
-        <header className="flex flex-wrap justify-between items-center bg-white p-4 px-6 rounded-2xl shadow-sm border border-slate-100 gap-4">
-          <div className="flex items-center gap-3 bg-slate-100 px-4 py-2 rounded-xl w-full sm:w-72">
-            <Search size={18} className="text-slate-400" />
+      <main className="flex-1 space-y-5 sm:space-y-6 min-w-0">
+        {/* Header Pencarian & Tombol Aksi */}
+        <header className="flex flex-wrap justify-between items-center bg-white p-3.5 sm:p-4 sm:px-6 rounded-2xl shadow-sm border border-slate-100 gap-3">
+          <div className="flex items-center gap-2.5 bg-slate-100 px-3.5 py-2 rounded-xl flex-1 sm:flex-initial sm:w-72">
+            <Search size={17} className="text-slate-400 shrink-0" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Cari kebiasaan atau indikator..."
+              placeholder="Cari kebiasaan..."
               className="bg-transparent text-sm focus:outline-none w-full"
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <div className="hidden md:flex items-center gap-1.5 bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-xl text-xs font-bold">
               <Sparkles size={14} />
               <span>7 KAIH • SMAN 5 Semarang</span>
@@ -360,9 +329,9 @@ export default function HomePage() {
 
             <Link
               href="/survey"
-              className="px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all text-xs font-bold shadow-sm"
+              className="px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all text-xs font-bold shadow-sm whitespace-nowrap"
             >
-              + Isi Survey Hari Ini
+              + Isi Survey
             </Link>
           </div>
         </header>
@@ -377,34 +346,34 @@ export default function HomePage() {
           <HeroSection onLogoLoaded={(url: string) => setNexaraLogoUrl(url)} />
         </Suspense>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
           <InteractiveDonutChart
             completion={completion}
             overallScore={overallScore}
           />
 
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-between">
+          <div className="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-between">
             <div>
-              <h3 className="font-bold text-slate-800 text-lg mb-2">Aksi Cepat</h3>
-              <p className="text-xs text-slate-500 mb-5">
+              <h3 className="font-bold text-slate-800 text-base sm:text-lg mb-1.5">Aksi Cepat</h3>
+              <p className="text-xs text-slate-500 mb-4 sm:mb-5">
                 Akses fitur utama 7 KAIH secara langsung.
               </p>
               <div className="space-y-3">
                 <Link
                   href="/survey"
-                  className="block w-full p-4 bg-indigo-600 text-white rounded-2xl font-bold text-sm text-center hover:bg-indigo-700 transition-all shadow-sm"
+                  className="block w-full p-3.5 sm:p-4 bg-indigo-600 text-white rounded-2xl font-bold text-xs sm:text-sm text-center hover:bg-indigo-700 transition-all shadow-sm"
                 >
                   Isi Survei Evaluasi Diri →
                 </Link>
                 <Link
                   href="/statistik"
-                  className="block w-full p-4 bg-blue-50 text-blue-700 rounded-2xl font-bold text-sm text-center hover:bg-blue-100 transition-all"
+                  className="block w-full p-3.5 sm:p-4 bg-blue-50 text-blue-700 rounded-2xl font-bold text-xs sm:text-sm text-center hover:bg-blue-100 transition-all"
                 >
                   Lihat Statistik Perkembangan Pribadi
                 </Link>
                 <Link
                   href="/game"
-                  className="block w-full p-4 bg-purple-50 text-purple-700 rounded-2xl font-bold text-sm text-center hover:bg-purple-100 transition-all"
+                  className="block w-full p-3.5 sm:p-4 bg-purple-50 text-purple-700 rounded-2xl font-bold text-xs sm:text-sm text-center hover:bg-purple-100 transition-all"
                 >
                   Mainkan Kuis Game Rotasi 🎮
                 </Link>
@@ -413,16 +382,17 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100 space-y-6">
+        {/* Chart Batang Rata-Rata Jawaban Siswa (Horizontal di HP Potret, Vertikal di Desktop) */}
+        <div className="bg-white p-5 sm:p-8 rounded-3xl shadow-sm border border-slate-100 space-y-5 sm:space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2">
-                <BarChart3 size={20} className="text-indigo-600" />
-                Chart Batang Rata-Rata Jawaban Siswa
+              <h3 className="font-bold text-slate-800 text-base sm:text-lg flex items-center gap-2">
+                <BarChart3 size={20} className="text-indigo-600 shrink-0" />
+                <span>Chart Batang Rata-Rata Jawaban Siswa</span>
               </h3>
-              <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
-                <MousePointerClick size={13} className="text-indigo-500" />
-                Klik / pencet salah satu batang di bawah untuk melihat detail rata-rata indikatornya
+              <p className="text-xs text-slate-500 flex items-center gap-1 mt-1">
+                <MousePointerClick size={13} className="text-indigo-500 shrink-0" />
+                <span>Ketuk salah satu indikator untuk melihat detail rata-ratanya</span>
               </p>
             </div>
             <span className="bg-indigo-50 text-indigo-600 text-xs font-semibold px-3 py-1 rounded-full">
@@ -436,7 +406,59 @@ export default function HomePage() {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-5 sm:grid-cols-10 gap-2 items-end h-56 pt-6 px-1 border-b border-slate-100">
+              {/* TAMPILAN KHUSUS HP POTRET (Batang Horizontal Rapi, Tidak Bertumpuk) */}
+              <div className="flex flex-col gap-2.5 sm:hidden border-b border-slate-100 pb-5">
+                {barAverages.map((avg, idx) => {
+                  const safeAvg = Math.min(5, Math.max(0, avg))
+                  const widthPercent = Math.round((safeAvg / 5) * 100)
+                  const isSelected = selectedBarIdx === idx
+
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setSelectedBarIdx(idx)}
+                      className={`w-full text-left p-3 rounded-2xl border transition-all ${
+                        isSelected
+                          ? 'bg-indigo-50/90 border-indigo-400 shadow-xs'
+                          : 'bg-slate-50/70 border-slate-100 hover:bg-slate-100/70'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between text-xs mb-1.5">
+                        <span
+                          className={`font-bold ${
+                            isSelected ? 'text-indigo-700' : 'text-slate-700'
+                          }`}
+                        >
+                          {idx + 1}. {INDICATOR_DETAILS[idx].short}
+                        </span>
+                        <span
+                          className={`font-extrabold ${
+                            isSelected ? 'text-indigo-700' : 'text-slate-600'
+                          }`}
+                        >
+                          {safeAvg.toFixed(1)}{' '}
+                          <span className="text-[10px] font-normal text-slate-400">/ 5.0</span>
+                        </span>
+                      </div>
+
+                      <div className="w-full h-3 bg-slate-200/80 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            isSelected
+                              ? 'bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500'
+                              : 'bg-gradient-to-r from-indigo-500 to-purple-400'
+                          }`}
+                          style={{ width: `${widthPercent}%` }}
+                        />
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* TAMPILAN KHUSUS TABLET & LAPTOP (10 Batang Vertikal) */}
+              <div className="hidden sm:grid sm:grid-cols-10 gap-2 items-end h-56 pt-6 px-1 border-b border-slate-100">
                 {barAverages.map((avg, idx) => {
                   const safeAvg = Math.min(5, Math.max(0, avg))
                   const heightPercent = Math.round((safeAvg / 5) * 100)
@@ -482,7 +504,8 @@ export default function HomePage() {
                 })}
               </div>
 
-              <div className="bg-slate-50 border border-indigo-100 rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all">
+              {/* Kotak Detail Indikator Terpilih */}
+              <div className="bg-slate-50 border border-indigo-100 rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all">
                 <div className="space-y-1.5 max-w-2xl">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-xs font-extrabold uppercase tracking-wider text-indigo-600 bg-indigo-100 px-2.5 py-0.5 rounded-lg">
@@ -499,7 +522,7 @@ export default function HomePage() {
                   </p>
                 </div>
 
-                <div className="flex items-center gap-4 shrink-0 bg-white px-5 py-3.5 rounded-2xl border border-slate-200 shadow-sm">
+                <div className="flex items-center justify-around sm:justify-start gap-4 shrink-0 bg-white px-5 py-3.5 rounded-2xl border border-slate-200 shadow-sm">
                   <div className="text-center">
                     <p className="text-[10px] font-bold uppercase text-slate-400">Rata-Rata Skor</p>
                     <p className="text-2xl font-black text-indigo-700">
@@ -520,13 +543,13 @@ export default function HomePage() {
 
         <section
           id="kebiasaan-section"
-          className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100"
+          className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100"
         >
-          <div className="text-center max-w-2xl mx-auto mb-8">
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">
+          <div className="text-center max-w-2xl mx-auto mb-6 sm:mb-8">
+            <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mb-2">
               7 Kebiasaan Anak Indonesia Hebat
             </h2>
-            <p className="text-slate-600 text-sm leading-relaxed">
+            <p className="text-slate-600 text-xs sm:text-sm leading-relaxed">
               Panduan kebiasaan positif menurut Kementerian Pendidikan Dasar dan Menengah
               (Kemendikdasmen).
             </p>
