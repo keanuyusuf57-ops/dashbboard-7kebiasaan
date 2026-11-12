@@ -12,9 +12,10 @@ import {
   LogOut,
   Lock,
   ShieldAlert,
+  Menu,
+  X,
 } from 'lucide-react'
 
-// DAFTAR EMAIL KHUSUS ADMIN (Hanya email di daftar ini yang bisa masuk ke /admin)
 const ALLOWED_ADMINS = [
   '7kaihadmin@sman5.sch.id',
   'admin@sman5smg.sch.id',
@@ -31,6 +32,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [adminPassword, setAdminPassword] = useState('')
   const [loginError, setLoginError] = useState('')
   const [loggingIn, setLoggingIn] = useState(false)
+  const [mobileAdminMenu, setMobileAdminMenu] = useState(false)
 
   const isAllowedAdmin = (userSession: any) => {
     const email = userSession?.user?.email?.toLowerCase().trim()
@@ -111,7 +113,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {!authLoading && !session && (
         <div className="min-h-screen bg-[#0f172a] flex items-center justify-center p-4 font-sans">
-          <div className="w-full max-w-md bg-white rounded-3xl p-8 shadow-2xl space-y-6">
+          <div className="w-full max-w-md bg-white rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
             <div className="text-center space-y-2">
               <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto">
                 <Lock size={26} />
@@ -139,7 +141,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   required
                   value={adminEmail}
                   onChange={(e) => setAdminEmail(e.target.value)}
-                  placeholder="admin@sman5smg.sch.id"
+                  placeholder="7kaihadmin@sman5.sch.id"
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600"
                 />
               </div>
@@ -174,8 +176,62 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       )}
 
-      <div className={!authLoading && session ? 'flex min-h-screen bg-slate-50 font-sans' : 'hidden'}>
-        <aside className="w-64 bg-[#0f172a] text-white flex flex-col justify-between p-5 shrink-0">
+      <div
+        className={
+          !authLoading && session
+            ? 'flex flex-col lg:flex-row min-h-screen bg-slate-50 font-sans'
+            : 'hidden'
+        }
+      >
+        {/* Header Admin Khusus Layar HP */}
+        <header className="lg:hidden bg-[#0f172a] text-white px-4 py-3.5 flex items-center justify-between sticky top-0 z-40">
+          <div className="flex items-center gap-2.5">
+            <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center font-black text-xs">
+              A
+            </div>
+            <span className="font-bold text-sm">Panel Admin 7 KAIH</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setMobileAdminMenu(!mobileAdminMenu)}
+            className="p-2 rounded-xl bg-slate-800 text-white"
+          >
+            {mobileAdminMenu ? <X size={18} /> : <Menu size={18} />}
+          </button>
+        </header>
+
+        {/* Dropdown Menu Admin HP */}
+        {mobileAdminMenu && (
+          <div className="lg:hidden bg-[#0f172a] text-white px-4 pb-4 space-y-2 border-b border-slate-800">
+            {navLinks.map((item) => {
+              const Icon = item.icon
+              const isActive = pathname === item.href
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMobileAdminMenu(false)}
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold ${
+                    isActive ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'
+                  }`}
+                >
+                  <Icon size={16} />
+                  <span>{item.label}</span>
+                </Link>
+              )
+            })}
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-rose-400 text-xs font-bold"
+            >
+              <LogOut size={16} />
+              <span>Keluar (Logout)</span>
+            </button>
+          </div>
+        )}
+
+        {/* Sidebar Admin Desktop */}
+        <aside className="hidden lg:flex w-64 bg-[#0f172a] text-white flex-col justify-between p-5 shrink-0">
           <div>
             <div className="flex items-center gap-3 pb-6 border-b border-slate-800">
               <div className="h-9 w-9 rounded-xl bg-blue-600 flex items-center justify-center font-black text-sm">
