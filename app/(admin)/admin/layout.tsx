@@ -16,8 +16,10 @@ import {
 
 // DAFTAR EMAIL KHUSUS ADMIN (Hanya email di daftar ini yang bisa masuk ke /admin)
 const ALLOWED_ADMINS = [
+  '7kaihadmin@sman5.sch.id',
   'admin@sman5smg.sch.id',
   'paknico@sman5smg.sch.id',
+]
 ]
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
