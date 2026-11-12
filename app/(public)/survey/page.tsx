@@ -1,124 +1,132 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { ArrowLeft, CheckCircle2, Send, User, Sparkles } from 'lucide-react'
 
-const GOOGLE_SHEET_WEBHOOK_URL =
+const GOOGLE_SHEET_API_URL =
   process.env.NEXT_PUBLIC_GOOGLE_SHEET_API_URL ||
   'https://script.google.com/macros/s/AKfycbyGCDCIQMCbgqy0l3hAjtuZs_Ed9F6xsj09cU9oxxnG72WizU_Q0sOVobnRtvYjGS5T/exec'
 
-type Question = {
-  id: string
-  dimension: string
-  question_text: string
-}
-
-const DEFAULT_SPREADSHEET_QUESTIONS: Question[] = [
-  { id: 'q1', dimension: 'Bangun Pagi', question_text: 'Saya bangun tidur sebelum pukul 05.30 pagi setiap hari sehingga tidak terlambat sekolah' },
-  { id: 'q2', dimension: 'Beribadah', question_text: '3 hari sebelumnya saya menjalankan ibadah sesuai dengan agama/kepercayaan saya tepat waktu dan khidmat' },
-  { id: 'q3', dimension: 'Beribadah', question_text: '3 hari sebelumnya saya mengawali dan mengakhiri kegiatan harian (seperti belajar dan makan) dengan berdoa' },
-  { id: 'q4', dimension: 'Berolahraga', question_text: '3 hari sebelumnya saya melakukan aktivitas fisik atau olahraga (misalnya berlari, senam, bersepeda) minimal 3 kali seminggu' },
-  { id: 'q5', dimension: 'Berolahraga', question_text: '3 hari sebelumnya saya berpartisipasi aktif dalam kegiatan olahraga di sekolah atau ekstrakurikuler' },
-  { id: 'q6', dimension: 'Makan Sehat', question_text: '3 hari sebelumnya saya memilih makanan/jajanan sehat yang mengandung buah, sayur, atau protein saat di sekolah dan rumah' },
-  { id: 'q7', dimension: 'Gemar Membaca', question_text: '3 hari sebelumnya saya meluangkan waktu membaca buku (non-pelajaran/literasi) minimal 15–30 menit setiap hari' },
-  { id: 'q8', dimension: 'Bermasyarakat', question_text: '3 hari sebelumnya saya membantu pekerjaan rumah tangga (misalnya menyapu, mencuci piring, menjaga adik) di rumah tanpa diperintah' },
-  { id: 'q9', dimension: 'Tidur Cepat', question_text: '3 hari sebelumnya saya tidur malam tidak melebihi pukul 21.30/22.00' },
-  { id: 'q10', dimension: 'Tidur Cepat', question_text: '3 hari sebelumnya saya mematikan atau tidak menggunakan gadget/smartphone saat mendekati jam tidur malam' },
+const FALLBACK_QUESTIONS = [
+  { id: '1', question_text: 'Saya bangun tidur sebelum pukul 05.30 pagi setiap hari.' },
+  { id: '2', question_text: 'Saya menjalankan ibadah sesuai dengan agama/kepercayaan saya tepat waktu.' },
+  { id: '3', question_text: 'Saya mengawali dan mengakhiri kegiatan harian (seperti belajar dan makan) dengan berdoa.' },
+  { id: '4', question_text: 'Saya melakukan aktivitas fisik atau olahraga (berlari, senam, bersepeda) minimal 3 kali seminggu.' },
+  { id: '5', question_text: 'Saya berpartisipasi aktif dalam kegiatan olahraga di sekolah atau ekstrakurikuler.' },
+  { id: '6', question_text: 'Saya memilih makanan/jajanan sehat yang mengandung buah, sayur, atau protein saat di sekolah maupun di rumah.' },
+  { id: '7', question_text: 'Saya meluangkan waktu membaca buku (non-pelajaran/literasi) minimal 15–30 menit setiap hari.' },
+  { id: '8', question_text: 'Saya membantu pekerjaan rumah tangga (menyapu, mencuci piring, menjaga adik) tanpa diperintah.' },
+  { id: '9', question_text: 'Saya tidur malam tidak melebihi pukul 21.30/22.00 agar istirahat mencukupi.' },
+  { id: '10', question_text: 'Saya mematikan atau tidak menggunakan gadget/smartphone saat mendekati jam tidur malam.' },
 ]
 
-function SurveyForm() {
+const SCALE_OPTIONS = [
+  { value: 1, label: 'Jarang' },
+  { value: 2, label: 'Kadang' },
+  { value: 3, label: 'Cukup' },
+  { value: 4, label: 'Sering' },
+  { value: 5, label: 'Selalu' },
+]
+
+export default function SurveyPage() {
   const supabase = createClient()
-  const searchParams = useSearchParams()
-  const profileParam = searchParams.get('profile')
-  const [userProfile, setUserProfile] = useState<string | null>(null)
 
-  const [questions, setQuestions] = useState<Question[]>(DEFAULT_SPREADSHEET_QUESTIONS)
-  const [loading, setLoading] = useState(true)
-
-  // 4 Kolom Identitas Siswa (Email, Nama, Kelas, No. Absen - NISN Dihilangkan)
+  // State Identitas Siswa
   const [email, setEmail] = useState('')
-  const [fullName, setFullName] = useState('')
-  const [className, setClassName] = useState('')
+  const [nisn, setNisn] = useState('')
+  const [nama, setNama] = useState('')
+  const [kelas, setKelas] = useState('')
   const [absen, setAbsen] = useState('')
 
-  const [answers, setAnswers] = useState<Record<string, number>>({})
+  // State Pertanyaan & Jawaban
+  const [questions, setQuestions] = useState<any[]>(FALLBACK_QUESTIONS)
+  const [answers, setAnswers] = useState<Record<number, number>>({})
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
 
+  // Muat identitas tersimpan dari localStorage jika siswa pernah mengisi
   useEffect(() => {
-    if (profileParam) setUserProfile(decodeURIComponent(profileParam))
     const savedEmail = localStorage.getItem('kaih_student_email')
-    if (savedEmail) setEmail(savedEmail)
-  }, [profileParam])
+    const savedNama = localStorage.getItem('kaih_student_nama')
+    const savedKelas = localStorage.getItem('kaih_student_kelas')
+    const savedAbsen = localStorage.getItem('kaih_student_absen')
+    const savedNisn = localStorage.getItem('kaih_student_nisn')
 
+    if (savedEmail) setEmail(savedEmail)
+    if (savedNama) setNama(savedNama)
+    if (savedKelas) setKelas(savedKelas)
+    if (savedAbsen) setAbsen(savedAbsen)
+    if (savedNisn) setNisn(savedNisn)
+  }, [])
+
+  // Muat daftar pertanyaan dari Supabase
   useEffect(() => {
     async function fetchQuestions() {
       const { data } = await supabase
         .from('questions')
-        .select('*')
+        .select('id, question_text')
         .order('created_at', { ascending: true })
 
-      if (data && data.length === 10) {
+      if (data && data.length > 0) {
         setQuestions(data)
-      } else {
-        setQuestions(DEFAULT_SPREADSHEET_QUESTIONS)
       }
-      setLoading(false)
     }
     fetchQuestions()
   }, [])
 
-  const handleScoreChange = (qId: string, score: number) => {
-    setAnswers((prev) => ({ ...prev, [qId]: score }))
+  const answeredCount = Object.keys(answers).length
+  const totalQuestions = questions.length
+
+  const handleSelectScore = (index: number, score: number) => {
+    setAnswers((prev) => ({
+      ...prev,
+      [index]: score,
+    }))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (Object.keys(answers).length < questions.length) {
-      alert('Mohon jawab seluruh 10 indikator pertanyaan survey!')
+    if (answeredCount < totalQuestions) {
+      alert(`Mohon lengkapi semua pertanyaan (${answeredCount}/${totalQuestions} terisi).`)
       return
     }
 
     setSubmitting(true)
-    localStorage.setItem('kaih_student_email', email.trim().toLowerCase())
 
-    const orderedScores: Record<string, number> = {}
-    questions.forEach((q, idx) => {
-      orderedScores[`q${idx + 1}`] = answers[q.id] || 0
-    })
+    // Simpan identitas ke localStorage agar otomatis terisi di kunjungan berikutnya
+    localStorage.setItem('kaih_student_email', email.trim())
+    localStorage.setItem('kaih_student_nama', nama.trim())
+    localStorage.setItem('kaih_student_kelas', kelas.trim())
+    localStorage.setItem('kaih_student_absen', absen.trim())
+    localStorage.setItem('kaih_student_nisn', nisn.trim())
 
-    // 1. Simpan ke Supabase
-    await supabase.from('survey_responses').insert([
-      {
-        full_name: fullName.trim(),
-        student_number: parseInt(absen) || 0,
-        class_name: className.trim(),
-        answers: { email: email.trim(), absen: absen.trim(), ...answers },
-      },
-    ])
+    const scoresArray = questions.map((_, idx) => answers[idx] || 0)
 
-    // 2. Kirim ke Google Spreadsheet (Otomatis menyambung rekapan & kirim email)
     try {
-      await fetch(GOOGLE_SHEET_WEBHOOK_URL, {
+      await fetch(GOOGLE_SHEET_API_URL, {
         method: 'POST',
         mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
+          timestamp: new Date().toISOString(),
           email: email.trim(),
-          nama: fullName.trim(),
-          kelas: className.trim(),
+          nisn: nisn.trim(),
+          nama: nama.trim(),
+          kelas: kelas.trim(),
           absen: absen.trim(),
-          user_profile: userProfile || '-',
-          ...orderedScores,
+          scores: scoresArray,
         }),
       })
+
       setSubmitted(true)
     } catch (err) {
-      console.error('Gagal mengirim ke Spreadsheet:', err)
-      alert('Gagal mengirim survey ke Spreadsheet. Silakan periksa koneksi internet.')
+      console.error('Gagal mengirim survei:', err)
+      alert('Terjadi kendala koneksi. Silakan coba kirim ulang.')
     } finally {
       setSubmitting(false)
     }
@@ -126,28 +134,30 @@ function SurveyForm() {
 
   if (submitted) {
     return (
-      <div className="max-w-2xl mx-auto my-12 px-4">
-        <div className="bg-white p-8 sm:p-10 rounded-3xl border border-slate-100 shadow-sm text-center space-y-4">
-          <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-3xl mx-auto font-bold">
-            ✓
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans">
+        <div className="max-w-md w-full bg-white rounded-3xl p-8 shadow-lg border border-slate-100 text-center space-y-5">
+          <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto">
+            <CheckCircle2 size={36} />
           </div>
-          <h1 className="text-2xl font-extrabold text-slate-800">Survey Berhasil Direkap!</h1>
-          <p className="text-slate-600 font-medium text-sm leading-relaxed">
-            Terima kasih, <span className="font-bold text-slate-800">{fullName}</span> (Kelas {className} / Absen {absen}). Jawabanmu sudah langsung terekap di Spreadsheet dan pesan ucapan terima kasih telah dikirim ke <span className="font-bold text-indigo-600">{email}</span>.
+          <h2 className="text-2xl font-black text-slate-900">Evaluasi Berhasil Dikirim!</h2>
+          <p className="text-sm text-slate-600 leading-relaxed">
+            Terima kasih, <span className="font-bold text-slate-800">{nama}</span>! Jawaban
+            evaluasi dirimu hari ini telah berhasil disimpan dan pesan apresiasi telah dikirim ke{' '}
+            <span className="font-semibold text-indigo-600">{email}</span>.
           </p>
-          <div className="flex flex-wrap justify-center gap-3 pt-2">
+          <div className="pt-2 space-y-2.5">
             <Link
               href="/statistik"
-              className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold px-6 py-2.5 rounded-xl text-sm shadow-md"
+              className="block w-full py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-sm transition-all"
             >
-              Lihat Statistik Saya 📊
+              Lihat Statistik Pribadi Saya
             </Link>
-            <button
-              onClick={() => window.location.reload()}
-              className="bg-slate-100 text-slate-700 font-bold px-6 py-2.5 rounded-xl text-sm"
+            <Link
+              href="/"
+              className="block w-full py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm transition-all"
             >
-              Isi Form Lagi
-            </button>
+              Kembali ke Beranda
+            </Link>
           </div>
         </div>
       </div>
@@ -155,180 +165,194 @@ function SurveyForm() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
-      {userProfile && (
-        <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-blue-500 text-white p-6 rounded-3xl shadow-md space-y-1">
-          <h2 className="text-xl font-black">Halo, {userProfile}! 👋</h2>
-          <p className="text-xs sm:text-sm text-indigo-100">
-            Hasil game kuis kamu sudah tercatat. Sekarang lengkapi evaluasi diri di bawah ini agar terekap di Spreadsheet!
+    <div className="min-h-screen bg-slate-50 py-8 px-4 font-sans">
+      <div className="max-w-3xl mx-auto space-y-6">
+        {/* Tombol Kembali */}
+        <div className="flex items-center justify-between">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-100 transition-all shadow-sm"
+          >
+            <ArrowLeft size={15} />
+            <span>Kembali ke Beranda</span>
+          </Link>
+          <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-indigo-50 text-indigo-700 text-xs font-extrabold">
+            <Sparkles size={13} />
+            <span>YUK SURVEY! • 7 KAIH</span>
+          </span>
+        </div>
+
+        {/* Header Judul */}
+        <div className="text-center space-y-2 py-2">
+          <h1 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
+            Form Evaluasi Diri Siswa
+          </h1>
+          <p className="text-sm text-slate-500 max-w-xl mx-auto">
+            Lengkapi identitas (Email, NISN, Nama, Kelas, Absen) dan isi penilaian kebiasaan
+            harianmu (Skala 1 – 5).
           </p>
         </div>
-      )}
 
-      <div className="text-center max-w-2xl mx-auto space-y-2">
-        <span className="text-xs font-bold uppercase tracking-widest text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-200">
-          Yuk Survey! • 7 KAIH
-        </span>
-        <h1 className="text-3xl font-extrabold text-slate-800">
-          Form Evaluasi Diri Siswa
-        </h1>
-        <p className="text-slate-600 text-sm">
-          Isi identitas (Email, Nama, Kelas, No. Absen) dan berikan penilaian objektif sesuai kebiasaan harianmu (Skala 1 – 5).
-        </p>
-      </div>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Kartu Identitas Siswa */}
+          <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100 space-y-5">
+            <h2 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
+              <User size={18} className="text-indigo-600" />
+              <span>Identitas Siswa</span>
+            </h2>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* IDENTITAS SISWA: EMAIL, NAMA, KELAS, NO ABSEN */}
-        <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-100 shadow-sm space-y-4">
-          <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-indigo-600"></span>
-            Identitas Siswa
-          </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1.5">
+                  Email Aktif Siswa
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="nama.siswa@sman5smg.sch.id"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
-                Email Aktif Siswa
-              </label>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Contoh: siswa@gmail.com"
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 text-sm font-semibold focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-              />
+              <div>
+                <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1.5">
+                  NISN
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={nisn}
+                  onChange={(e) => setNisn(e.target.value)}
+                  placeholder="Contoh: 0081234567"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+              <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1.5">
                 Nama Lengkap
               </label>
               <input
                 type="text"
                 required
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
+                value={nama}
+                onChange={(e) => setNama(e.target.value)}
                 placeholder="Contoh: Keanu Yusuf Al Ghifari"
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 text-sm font-semibold focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
-                Kelas
-              </label>
-              <input
-                type="text"
-                required
-                value={className}
-                onChange={(e) => setClassName(e.target.value)}
-                placeholder="Contoh: XI-3"
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 text-sm font-semibold focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-              />
-            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1.5">
+                  Kelas
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={kelas}
+                  onChange={(e) => setKelas(e.target.value)}
+                  placeholder="Contoh: XI-3"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
-                Nomor Absen
-              </label>
-              <input
-                type="number"
-                required
-                value={absen}
-                onChange={(e) => setAbsen(e.target.value)}
-                placeholder="Contoh: 15"
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 text-sm font-semibold focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-              />
+              <div>
+                <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1.5">
+                  Nomor Absen
+                </label>
+                <input
+                  type="number"
+                  required
+                  value={absen}
+                  onChange={(e) => setAbsen(e.target.value)}
+                  placeholder="Contoh: 15"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* DAFTAR 10 PERTANYAAN */}
-        <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-100 shadow-sm space-y-6">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-            <h2 className="text-base font-bold text-slate-800">Daftar Pertanyaan Kebiasaan</h2>
-            <span className="text-xs font-bold text-slate-400">
-              {Object.keys(answers).length} / {questions.length} Terisi
-            </span>
+          {/* Kartu Daftar Pertanyaan Kebiasaan (TANPA LABEL 1. BANGUN PAGI, 2. BERIBADAH, DLL.) */}
+          <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100 space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <h2 className="text-base font-extrabold text-slate-900">
+                Daftar Pertanyaan Kebiasaan
+              </h2>
+              <span className="text-xs font-extrabold px-3 py-1 rounded-full bg-indigo-50 text-indigo-600">
+                {answeredCount} / {totalQuestions} Terisi
+              </span>
+            </div>
+
+            <div className="space-y-4">
+              {questions.map((q, idx) => {
+                const selectedVal = answers[idx]
+
+                return (
+                  <div
+                    key={q.id || idx}
+                    className={`p-5 rounded-2xl border transition-all space-y-4 ${
+                      selectedVal
+                        ? 'bg-indigo-50/30 border-indigo-200'
+                        : 'bg-slate-50/60 border-slate-200/80'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-sm sm:text-base font-bold text-slate-800 leading-relaxed">
+                        {q.question_text}
+                      </p>
+                      <span className="text-xs font-extrabold text-slate-400 shrink-0">
+                        #{idx + 1}
+                      </span>
+                    </div>
+
+                    {/* Pilihan Skala 1 - 5 */}
+                    <div className="grid grid-cols-5 gap-2 bg-white p-2 rounded-2xl border border-slate-200/80">
+                      {SCALE_OPTIONS.map((opt) => {
+                        const isSelected = selectedVal === opt.value
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => handleSelectScore(idx, opt.value)}
+                            className={`py-2.5 px-1 rounded-xl flex flex-col items-center justify-center transition-all cursor-pointer ${
+                              isSelected
+                                ? 'bg-indigo-600 text-white shadow-sm scale-[1.02]'
+                                : 'hover:bg-slate-100 text-slate-700'
+                            }`}
+                          >
+                            <span className="text-sm font-extrabold">{opt.value}</span>
+                            <span
+                              className={`text-[10px] font-semibold mt-0.5 ${
+                                isSelected ? 'text-indigo-100' : 'text-slate-400'
+                              }`}
+                            >
+                              {opt.label}
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           </div>
 
-          {loading ? (
-            <p className="py-6 text-center text-slate-500 animate-pulse">Memuat pertanyaan...</p>
-          ) : (
-            <div className="space-y-5">
-              {questions.map((q, idx) => (
-                <div key={q.id} className="p-5 rounded-2xl border border-slate-100 bg-slate-50/70 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-3 py-1 rounded-lg">
-                      {q.dimension}
-                    </span>
-                    <span className="text-xs font-bold text-slate-400">#{idx + 1}</span>
-                  </div>
-                  <p className="text-sm font-bold text-slate-800">{q.question_text}</p>
-                  <div className="flex items-center justify-between max-w-lg mx-auto bg-white p-2.5 rounded-xl border border-slate-200">
-                    {[1, 2, 3, 4, 5].map((score) => (
-                      <label
-                        key={score}
-                        className={`flex flex-col items-center cursor-pointer px-3 py-1.5 rounded-lg transition-all ${
-                          answers[q.id] === score
-                            ? 'bg-indigo-600 text-white font-extrabold shadow-sm'
-                            : 'text-slate-700 hover:bg-slate-100 font-semibold'
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name={`question_${q.id}`}
-                          value={score}
-                          required
-                          checked={answers[q.id] === score}
-                          onChange={() => handleScoreChange(q.id, score)}
-                          className="sr-only"
-                        />
-                        <span className="text-sm">{score}</span>
-                        <span className="text-[10px] opacity-80">
-                          {score === 1 ? 'Jarang' : score === 3 ? 'Cukup' : score === 5 ? 'Selalu' : ''}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
+          {/* Tombol Kirim Survey */}
           <button
             type="submit"
-            disabled={submitting || loading}
-            className="w-full bg-gradient-to-r from-indigo-600 via-purple-600 to-blue-500 text-white font-extrabold py-4 rounded-2xl shadow-md text-sm disabled:opacity-50"
+            disabled={submitting}
+            className="w-full py-4 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:opacity-95 text-white font-extrabold text-sm sm:text-base shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
           >
-            {submitting ? 'Mengirim ke Spreadsheet & Email...' : 'Kirim Survey Sekarang 🚀'}
+            <Send size={18} />
+            <span>{submitting ? 'Menyimpan Jawaban...' : 'Kirim Survey Sekarang 🚀'}</span>
           </button>
-        </div>
-      </form>
-    </div>
-  )
-}
-
-export default function SurveySiswaPage() {
-  return (
-    <div className="flex bg-slate-50 min-h-screen p-4 gap-6 font-sans">
-      <aside className="hidden lg:flex w-60 shrink-0 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm flex-col gap-2">
-        <Link href="/" className="rounded-2xl bg-indigo-50 px-3 py-2.5 text-xs font-bold text-indigo-600">
-          ← Kembali ke Beranda
-        </Link>
-        <Link href="/game" className="rounded-2xl px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">
-          Main Game
-        </Link>
-        <Link href="/statistik" className="rounded-2xl px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">
-          Statistik Pribadi
-        </Link>
-      </aside>
-      <main className="flex-1">
-        <Suspense fallback={<div className="p-8 text-center">Memuat halaman survei...</div>}>
-          <SurveyForm />
-        </Suspense>
-      </main>
+        </form>
+      </div>
     </div>
   )
 }
