@@ -17,7 +17,6 @@ import {
   Zap,
   Lock,
   ArrowUpRight,
-  ArrowRight,
   X,
   FolderKanban,
   Sunrise,
@@ -27,20 +26,62 @@ import {
   BookOpenCheck,
   Users,
   MoonStar,
-  ChevronDown,
+  TrendingUp,
+  Target,
+  Lightbulb,
 } from 'lucide-react'
 
 const INDICATOR_DETAILS = [
-  { short: 'Bangun Pagi', full: 'Saya bangun pagi tepat waktu.' },
-  { short: 'Beribadah', full: 'Saya beribadah sesuai keyakinan.' },
-  { short: 'Berolahraga', full: 'Saya berolahraga secara teratur.' },
-  { short: 'Makan Sehat', full: 'Saya mengonsumsi makanan sehat dan bergizi.' },
-  { short: 'Gemar Membaca', full: 'Saya meluangkan waktu untuk membaca.' },
-  { short: 'Bermasyarakat', full: 'Saya membantu orang tua dan peduli lingkungan.' },
-  { short: 'Tidur Cepat', full: 'Saya beristirahat dengan cukup.' },
-  { short: 'Belajar', full: 'Saya belajar dengan tekun.' },
-  { short: 'Bersosialisasi', full: 'Saya berinteraksi dengan baik.' },
-  { short: 'Mengatur Waktu', full: 'Saya mengatur waktu dengan baik.' },
+  {
+    short: 'Bangun Pagi',
+    full: 'Saya bangun pagi tepat waktu.',
+    action: 'Programkan pengingat pagi bersama wali kelas serta apresiasi siswa hadir tepat waktu sebelum pukul 06.50 WIB.',
+  },
+  {
+    short: 'Beribadah',
+    full: 'Saya beribadah sesuai keyakinan.',
+    action: 'Optimalkan pembiasaan doa bersama sebelum jam pertama dan shalat berjamaah/kegiatan rohani terjadwal.',
+  },
+  {
+    short: 'Berolahraga',
+    full: 'Saya berolahraga secara teratur.',
+    action: 'Aktifkan senam pagi Jumat sehat dan tantangan kebugaran mingguan antar kelas.',
+  },
+  {
+    short: 'Makan Sehat',
+    full: 'Saya mengonsumsi makanan sehat dan bergizi.',
+    action: 'Edukasi sarapan bergizi sebelum berangkat sekolah dan kampanye kantin sehat minim minuman berpemanis.',
+  },
+  {
+    short: 'Gemar Membaca',
+    full: 'Saya meluangkan waktu untuk membaca.',
+    action: 'Terapkan gerakan literasi 15 menit membaca buku non-pelajaran sebelum pembelajaran dimulai.',
+  },
+  {
+    short: 'Bermasyarakat',
+    full: 'Saya membantu orang tua dan peduli lingkungan.',
+    action: 'Berikan jurnal bakti sosial rumah dan piket kebersihan lingkungan kelas berbasis kolaborasi.',
+  },
+  {
+    short: 'Tidur Cepat',
+    full: 'Saya beristirahat dengan cukup.',
+    action: 'Sosialisasikan batas penggunaan gawai maksimal pukul 21.30 WIB agar siswa tidur cukup sebelum pukul 22.00.',
+  },
+  {
+    short: 'Belajar',
+    full: 'Saya belajar dengan tekun.',
+    action: 'Bentuk kelompok belajar sebaya (peer tutoring) untuk mendampingi materi pelajaran yang sulit.',
+  },
+  {
+    short: 'Bersosialisasi',
+    full: 'Saya berinteraksi dengan baik.',
+    action: 'Perkuat kegiatan kerja kelompok lintas minat dan budaya saling menghargai di lingkungan sekolah.',
+  },
+  {
+    short: 'Mengatur Waktu',
+    full: 'Saya mengatur waktu dengan baik.',
+    action: 'Latih siswa menyusun jadwal prioritas harian antara tugas akademik, organisasi, dan istirahat.',
+  },
 ]
 
 type DashboardAnalytics = {
@@ -54,6 +95,8 @@ type DashboardAnalytics = {
   userStreak: number
   userXp: number
   leaderboard: { name: string; kelas: string; xp: number }[]
+  topIndicatorIdx: number
+  lowestIndicatorIdx: number
 }
 
 function parseRowScores(row: any): (number | null)[] {
@@ -82,6 +125,15 @@ function processSupabaseRows(rows: any[], email: string | null = null): Dashboar
   const overallScore = allScores.length
     ? allScores.reduce((sum, value) => sum + value, 0) / allScores.length
     : 0
+
+  let topIndicatorIdx = 0
+  let lowestIndicatorIdx = 0
+  barAverages.forEach((val, idx) => {
+    if (val > barAverages[topIndicatorIdx]) topIndicatorIdx = idx
+    if (val > 0 && (barAverages[lowestIndicatorIdx] === 0 || val < barAverages[lowestIndicatorIdx])) {
+      lowestIndicatorIdx = idx
+    }
+  })
 
   const students = new Map<string, { name: string; kelas: string; score: number; count: number }>()
   rows.forEach((row) => {
@@ -142,6 +194,8 @@ function processSupabaseRows(rows: any[], email: string | null = null): Dashboar
     userStreak: currentStudent.length,
     userXp: Math.round(userScore * 100),
     leaderboard,
+    topIndicatorIdx,
+    lowestIndicatorIdx,
   }
 }
 
@@ -413,7 +467,6 @@ export default function HomePage() {
   const [loadingChart, setLoadingChart] = useState(true)
   const [savedStudentEmail, setSavedStudentEmail] = useState<string | null>(null)
   const [analytics, setAnalytics] = useState<DashboardAnalytics>(() => processSupabaseRows([]))
-  const [megaMenuOpen, setMegaMenuOpen] = useState<boolean>(false)
 
   useEffect(() => {
     const email = localStorage.getItem('kaih_student_email')
@@ -481,48 +534,34 @@ export default function HomePage() {
   const selectedPct = Math.min(100, Math.round((selectedAvg / 4) * 100))
   const selectedPredicate = getPredicate(selectedAvg)
 
+ const safeTopIdx =
+    typeof analytics.topIndicatorIdx === 'number' && INDICATOR_DETAILS[analytics.topIndicatorIdx]
+      ? analytics.topIndicatorIdx
+      : 0
+  const safeLowestIdx =
+    typeof analytics.lowestIndicatorIdx === 'number' &&
+    INDICATOR_DETAILS[analytics.lowestIndicatorIdx]
+      ? analytics.lowestIndicatorIdx
+      : 0
+
+  const topIndicator = INDICATOR_DETAILS[safeTopIdx]
+  const topScore = analytics.barAverages[safeTopIdx] || 0
+  const lowestIndicator = INDICATOR_DETAILS[safeLowestIdx]
+  const lowestScore = analytics.barAverages[safeLowestIdx] || 0
+
   return (
     <div className="space-y-5 font-sans text-[#090D16]">
-      {/* Quick Search Bar & Bento Mega Menu 7 Kebiasaan */}
+      {/* Paling Atas: Kolom Pencarian Bersih */}
       <div className="relative z-20">
         <div className="kaih-glass-card rounded-3xl px-4 sm:px-5 py-3 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setMegaMenuOpen(!megaMenuOpen)}
-              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-extrabold transition-all cursor-pointer ${
-                megaMenuOpen
-                  ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-xs'
-                  : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200'
-              }`}
-            >
-              <Sparkles size={13} />
-              <span>Jelajahi 7 Kebiasaan</span>
-              <ChevronDown
-                size={14}
-                className={`transition-transform duration-200 ${megaMenuOpen ? 'rotate-180' : ''}`}
-              />
-            </button>
-
-            {savedStudentEmail && (
-              <Link
-                href="/statistik"
-                className="hidden sm:inline-flex items-center gap-1.5 bg-white/90 border border-white text-slate-900 px-3.5 py-2 rounded-full text-xs font-bold hover:bg-white transition-all"
-              >
-                <UserCheck size={13} className="text-indigo-700" />
-                <span className="max-w-[140px] truncate">{savedStudentEmail}</span>
-              </Link>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2 bg-white/90 border border-white px-3.5 py-2 rounded-full w-full sm:w-72 focus-within:ring-2 focus-within:ring-indigo-500">
-            <Search size={14} className="text-slate-700 shrink-0" />
+          <div className="flex items-center gap-2 bg-white/90 border border-white px-4 py-2 rounded-full flex-1 min-w-[220px] focus-within:ring-2 focus-within:ring-indigo-500">
+            <Search size={15} className="text-slate-700 shrink-0" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Cari menu, kuis, rapor..."
-              className="bg-transparent text-xs focus:outline-none w-full text-[#090D16] font-semibold"
+              placeholder="Cari menu, panduan kebiasaan, kuis, rapor..."
+              className="bg-transparent text-xs sm:text-sm focus:outline-none w-full text-[#090D16] font-semibold"
             />
             {searchQuery && (
               <button
@@ -530,73 +569,21 @@ export default function HomePage() {
                 onClick={() => setSearchQuery('')}
                 className="text-slate-600 hover:text-slate-900 cursor-pointer"
               >
-                <X size={13} />
+                <X size={14} />
               </button>
             )}
           </div>
+
+          {savedStudentEmail && (
+            <Link
+              href="/statistik"
+              className="inline-flex items-center gap-1.5 bg-white/90 border border-white text-slate-900 px-3.5 py-2 rounded-full text-xs font-bold hover:bg-white transition-all shrink-0"
+            >
+              <UserCheck size={13} className="text-indigo-700" />
+              <span className="max-w-[180px] truncate">{savedStudentEmail}</span>
+            </Link>
+          )}
         </div>
-
-        {/* Bento Mega Menu Dropdown (Mengarah ke Penjelasan Tiap Kebiasaan) */}
-        {megaMenuOpen && (
-          <div className="mt-2.5 bg-white/95 backdrop-blur-2xl border border-white rounded-3xl p-5 sm:p-6 shadow-2xl grid grid-cols-1 lg:grid-cols-12 gap-4">
-            <div className="lg:col-span-8 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
-              {HABIT_THEMES.map((habit) => {
-                const Icon = habit.icon
-                return (
-                  <Link
-                    key={habit.num}
-                    href={`/kebiasaan/${habit.slug}`}
-                    onClick={() => setMegaMenuOpen(false)}
-                    className="flex items-start gap-3 p-3 rounded-2xl hover:bg-indigo-50 border border-transparent hover:border-indigo-200 transition-all group"
-                  >
-                    <span
-                      className={`h-9 w-9 rounded-xl border flex items-center justify-center shrink-0 ${habit.iconBg}`}
-                    >
-                      <Icon size={17} />
-                    </span>
-                    <div>
-                      <p className="text-xs font-extrabold text-[#090D16] group-hover:text-indigo-700">
-                        {habit.num}. {habit.title}
-                      </p>
-                      <p className="text-[11px] text-slate-700 line-clamp-2 mt-0.5 leading-snug">
-                        {habit.desc}
-                      </p>
-                    </div>
-                  </Link>
-                )
-              })}
-            </div>
-
-            <div className="lg:col-span-4 rounded-2xl bg-gradient-to-br from-indigo-600 via-purple-600 to-sky-500 text-white p-5 flex flex-col justify-between relative overflow-hidden">
-              <Sparkles
-                size={90}
-                className="absolute -right-3 -bottom-3 text-white/15 pointer-events-none"
-              />
-              <div className="space-y-1.5 relative z-10">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider bg-white/20 px-2.5 py-0.5 rounded-full">
-                  Evaluasi & Gamifikasi
-                </span>
-                <h4 className="font-heading text-lg font-black leading-tight pt-1">
-                  Bangun Karakter Hebat Setiap Hari
-                </h4>
-                <p className="text-xs text-indigo-50 leading-relaxed">
-                  Isi survei harianmu atau mainkan kuis interaktif 7 KAIH untuk mengumpulkan XP!
-                </p>
-              </div>
-
-              <div className="pt-4 relative z-10">
-                <Link
-                  href="/game"
-                  onClick={() => setMegaMenuOpen(false)}
-                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-950 hover:bg-slate-900 text-white text-xs font-extrabold transition-all"
-                >
-                  <span>Explore Kuis 7 KAIH</span>
-                  <ArrowRight size={14} />
-                </Link>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Dropdown Hasil Pencarian Global */}
         {trimmedQuery && (
@@ -656,7 +643,7 @@ export default function HomePage() {
         )}
       </div>
 
-      {/* Hero Section */}
+      {/* Hero Section dengan Background Logo SMALA Full Lebar & Scroll Vertikal Halus */}
       <Suspense
         fallback={
           <div className="h-[220px] bg-indigo-950/80 rounded-3xl flex items-center justify-center text-white">
@@ -667,34 +654,6 @@ export default function HomePage() {
         <HeroSection />
       </Suspense>
 
-      {/* Strip Ikon Visual 7 Kebiasaan Anak Indonesia Hebat */}
-      <div className="kaih-glass-card p-3.5 sm:p-4 rounded-3xl">
-        <div className="flex items-center gap-2.5 overflow-x-auto pb-1">
-          {HABIT_THEMES.map((habit) => {
-            const Icon = habit.icon
-            return (
-              <Link
-                key={habit.num}
-                href={`/kebiasaan/${habit.slug}`}
-                className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl bg-gradient-to-br border hover:shadow-sm transition-all shrink-0 group ${habit.cardTint}`}
-              >
-                <span
-                  className={`h-8 w-8 rounded-xl border flex items-center justify-center shrink-0 transition-transform group-hover:scale-110 ${habit.iconBg}`}
-                >
-                  <Icon size={16} />
-                </span>
-                <div>
-                  <p className="text-[10px] font-extrabold uppercase text-slate-700 leading-none">
-                    Kebiasaan {habit.num}
-                  </p>
-                  <p className="text-xs font-extrabold text-[#090D16] mt-0.5">{habit.title}</p>
-                </div>
-              </Link>
-            )
-          })}
-        </div>
-      </div>
-
       {/* Banner Partisipasi Siswa Live dari Supabase */}
       <div className="kaih-glass-card p-4 sm:p-5 rounded-3xl space-y-2.5">
         <div className="flex items-center justify-between gap-2">
@@ -702,7 +661,7 @@ export default function HomePage() {
             Total Siswa Berpartisipasi
           </span>
           <span className="font-heading text-base sm:text-lg font-black text-indigo-700">
-            {analytics.totalResponses.toLocaleString('id-ID')} Siswa
+            {analytics.uniqueStudentsCount.toLocaleString('id-ID')} Siswa
           </span>
         </div>
         <div className="w-full h-3 bg-white/80 rounded-full overflow-hidden p-0.5 border border-white">
@@ -720,13 +679,70 @@ export default function HomePage() {
         </p>
       </div>
 
+      {/* Insight Analisis Data & Rekomendasi Tindak Lanjut Sekolah */}
+      {!loadingChart && analytics.totalResponses > 0 && (
+        <section className="kaih-glass-card p-5 sm:p-6 rounded-3xl space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider text-indigo-800 bg-indigo-100 px-3 py-1 rounded-full">
+                <Lightbulb size={13} />
+                <span>Analisis Pola &amp; Rekomendasi Sekolah</span>
+              </span>
+              <h2 className="font-heading text-base sm:text-lg font-extrabold text-[#090D16] mt-2">
+                Temuan Utama &amp; Prioritas Pembinaan Karakter SMAN 5 Semarang
+              </h2>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+            <div className="bg-emerald-50/90 border border-emerald-200 rounded-2xl p-4 space-y-1">
+              <div className="flex items-center gap-1.5 text-emerald-800 text-xs font-extrabold">
+                <TrendingUp size={15} />
+                <span>Kebiasaan Paling Kuat</span>
+              </div>
+              <p className="text-base font-black text-emerald-950">
+                {topIndicator.short} ({topScore.toFixed(2)} / 4.0)
+              </p>
+              <p className="text-xs text-emerald-900 leading-relaxed">
+                Menjadi budaya positif tertinggi di kalangan siswa. Pertahankan melalui apresiasi
+                rutin di sekolah.
+              </p>
+            </div>
+
+            <div className="bg-amber-50/90 border border-amber-200 rounded-2xl p-4 space-y-1">
+              <div className="flex items-center gap-1.5 text-amber-800 text-xs font-extrabold">
+                <Target size={15} />
+                <span>Prioritas Peningkatan</span>
+              </div>
+              <p className="text-base font-black text-amber-950">
+                {lowestIndicator.short} ({lowestScore.toFixed(2)} / 4.0)
+              </p>
+              <p className="text-xs text-amber-900 leading-relaxed">
+                Memiliki skor rata-rata terendah dibanding indikator lain sehingga menjadi fokus
+                pembinaan utama.
+              </p>
+            </div>
+
+            <div className="bg-indigo-50/90 border border-indigo-200 rounded-2xl p-4 space-y-1">
+              <div className="flex items-center gap-1.5 text-indigo-800 text-xs font-extrabold">
+                <Sparkles size={15} />
+                <span>Rekomendasi Tindak Lanjut</span>
+              </div>
+              <p className="text-xs font-bold text-indigo-950 leading-relaxed">
+                {lowestIndicator.action}
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Bento Grid Baris 1 */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 sm:gap-6">
         <InteractiveDonutChart
           completion={analytics.completionPct}
           overallScore={analytics.overallScore}
           totalResponses={analytics.totalResponses}
-          uniqueStudentsCount={analytics.totalResponses}
+          uniqueStudentsCount={analytics.uniqueStudentsCount}
         />
 
         <RadarChart7KAIH dimensions={analytics.sevenDimensions} />
@@ -741,7 +757,7 @@ export default function HomePage() {
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-heading font-extrabold text-[#090D16] text-base sm:text-lg flex items-center gap-2">
                 <Trophy size={18} className="text-amber-600 shrink-0" />
-                <span>Pencapaian & Peringkat</span>
+                <span>Pencapaian &amp; Peringkat</span>
               </h3>
               <span className="bg-amber-100 text-amber-900 text-[11px] font-extrabold px-2.5 py-1 rounded-full border border-amber-300">
                 {analytics.userBadge}
@@ -994,7 +1010,7 @@ export default function HomePage() {
         )}
       </div>
 
-      {/* Interactive Habit Folder Cards -> Mengarah ke Halaman Penjelasan Masing-Masing */}
+      {/* Interactive Habit Folder Cards */}
       <section id="kebiasaan-section" className="kaih-glass-card p-6 sm:p-8 rounded-3xl">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-6 sm:mb-8">
           <div>
