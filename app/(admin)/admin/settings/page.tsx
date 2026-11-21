@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import ActivityGalleryManager from '@/components/admin/ActivityGalleryManager'
 import {
@@ -119,6 +119,7 @@ const DEFAULT_ABOUT_WHY =
 
 export default function PengaturanTampilanPage() {
   const supabase = createClient()
+  const memberFormRef = useRef<HTMLFormElement | null>(null)
 
   const [configId, setConfigId] = useState<string | null>(null)
   const [heroTitle, setHeroTitle] = useState('')
@@ -147,6 +148,7 @@ export default function PengaturanTampilanPage() {
   const [memberFotoUrl, setMemberFotoUrl] = useState('')
   const [memberUrutan, setMemberUrutan] = useState<number>(1)
   const [savingMember, setSavingMember] = useState(false)
+  const [memberSavedToast, setMemberSavedToast] = useState(false)
 
   // State foto & ringkasan tiap-tiap dari 7 Kebiasaan
   const [habitImages, setHabitImages] = useState<Record<string, string>>({})
@@ -281,6 +283,11 @@ export default function PengaturanTampilanPage() {
     setMemberDeskripsi(member.deskripsi || '')
     setMemberFotoUrl(member.foto_url || '')
     setMemberUrutan(member.urutan || 1)
+
+    // Otomatis scroll mulus ke formulir edit (sangat membantu di HP/mobile)
+    setTimeout(() => {
+      memberFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 80)
   }
 
   const handleSaveTeamMember = async (e: React.FormEvent) => {
@@ -309,6 +316,8 @@ export default function PengaturanTampilanPage() {
       } else {
         await loadTeamMembers()
         resetMemberForm()
+        setMemberSavedToast(true)
+        setTimeout(() => setMemberSavedToast(false), 3000)
       }
     } else {
       const { error } = await supabase.from('about_team').insert([payload])
@@ -318,6 +327,8 @@ export default function PengaturanTampilanPage() {
       } else {
         await loadTeamMembers()
         resetMemberForm()
+        setMemberSavedToast(true)
+        setTimeout(() => setMemberSavedToast(false), 3000)
       }
     }
     setSavingMember(false)
@@ -690,17 +701,31 @@ export default function PengaturanTampilanPage() {
                   Tambahkan atau perbaiki nama pembuat dashboard, peran/divisi, kelas/jabatan, foto profil, dan deskripsi kontribusi yang tampil di halaman Tentang 7 KAIH.
                 </p>
               </div>
+
+              {memberSavedToast && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-900 text-xs font-extrabold">
+                  <CheckCircle2 size={14} className="text-emerald-600" />
+                  <span>Data anggota berhasil diperbarui!</span>
+                </span>
+              )}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               {/* Form Tambah / Edit Anggota Tim */}
               <form
+                ref={memberFormRef}
                 onSubmit={handleSaveTeamMember}
-                className="lg:col-span-5 p-5 rounded-3xl bg-slate-50 border border-slate-200/90 space-y-3.5"
+                className={`lg:col-span-5 p-5 rounded-3xl border space-y-3.5 transition-all ${
+                  editingMemberId
+                    ? 'bg-indigo-50/70 border-indigo-400 ring-2 ring-indigo-200'
+                    : 'bg-slate-50 border-slate-200/90'
+                }`}
               >
                 <div className="flex items-center justify-between">
                   <h3 className="font-heading text-sm font-extrabold text-indigo-950">
-                    {editingMemberId ? 'Edit Data Pembuat / Anggota' : 'Tambah Pembuat / Anggota Baru'}
+                    {editingMemberId
+                      ? `Mode Edit: ${memberNama || 'Anggota Tim'}`
+                      : 'Tambah Pembuat / Anggota Baru'}
                   </h3>
                   {editingMemberId && (
                     <button
@@ -757,44 +782,69 @@ export default function PengaturanTampilanPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 items-end">
-                  <div className="sm:col-span-2">
-                    <label className="block text-[10px] font-extrabold uppercase text-slate-700 mb-1">
-                      Foto Profil (Opsional)
+                {/* Pratinjau & Unggah Foto Profil Anggota */}
+                <div className="p-3 rounded-2xl bg-white border border-slate-200/90 flex items-center gap-3">
+                  {memberFotoUrl ? (
+                    <img
+                      src={memberFotoUrl}
+                      alt="Pratinjau Foto"
+                      className="h-14 w-14 rounded-2xl object-cover border border-slate-200 shrink-0"
+                    />
+                  ) : (
+                    <div className="h-14 w-14 rounded-2xl bg-slate-100 border border-dashed border-slate-300 flex items-center justify-center text-slate-400 shrink-0">
+                      <ImageIcon size={20} />
+                    </div>
+                  )}
+
+                  <div className="flex-1 space-y-1.5">
+                    <label className="block text-[10px] font-extrabold uppercase text-slate-700">
+                      Foto Profil Anggota
                     </label>
-                    <label className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold cursor-pointer">
-                      {uploadingField === 'team-member' ? (
-                        <Loader2 size={14} className="animate-spin" />
-                      ) : (
-                        <Upload size={14} />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold cursor-pointer">
+                        {uploadingField === 'team-member' ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                          <Upload size={14} />
+                        )}
+                        <span>
+                          {uploadingField === 'team-member'
+                            ? 'Mengunggah...'
+                            : memberFotoUrl
+                            ? 'Ganti Foto'
+                            : 'Pilih Foto'}
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          disabled={uploadingField !== null}
+                          onChange={(e) => handleMemberPhotoUpload(e.target.files?.[0])}
+                          className="hidden"
+                        />
+                      </label>
+
+                      {memberFotoUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setMemberFotoUrl('')}
+                          className="px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-[11px] font-extrabold cursor-pointer"
+                        >
+                          Hapus Foto
+                        </button>
                       )}
-                      <span>
-                        {uploadingField === 'team-member'
-                          ? 'Mengunggah...'
-                          : memberFotoUrl
-                          ? 'Ganti Foto Profil'
-                          : 'Pilih Foto Profil'}
-                      </span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        disabled={uploadingField !== null}
-                        onChange={(e) => handleMemberPhotoUpload(e.target.files?.[0])}
-                        className="hidden"
-                      />
-                    </label>
+                    </div>
                   </div>
 
-                  <div>
+                  <div className="w-20 shrink-0">
                     <label className="block text-[10px] font-extrabold uppercase text-slate-700 mb-1">
-                      Urutan Tampil
+                      Urutan
                     </label>
                     <input
                       type="number"
                       min={1}
                       value={memberUrutan}
                       onChange={(e) => setMemberUrutan(Number(e.target.value))}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-xs font-bold text-[#090D16]"
+                      className="w-full px-2.5 py-1.5 rounded-xl border border-slate-300 bg-white text-xs font-bold text-[#090D16]"
                     />
                   </div>
                 </div>
@@ -804,7 +854,7 @@ export default function PengaturanTampilanPage() {
                     Deskripsi Kontribusi / Bio Singkat
                   </label>
                   <textarea
-                    rows={2}
+                    rows={3}
                     value={memberDeskripsi}
                     onChange={(e) => setMemberDeskripsi(e.target.value)}
                     placeholder="Contoh: Merancang arsitektur database Supabase, analitik dashboard, dan antarmuka pengguna."
@@ -815,7 +865,7 @@ export default function PengaturanTampilanPage() {
                 <button
                   type="submit"
                   disabled={savingMember || uploadingField !== null}
-                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold cursor-pointer disabled:opacity-60"
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold cursor-pointer disabled:opacity-60 shadow-xs"
                 >
                   {savingMember ? (
                     <Loader2 size={15} className="animate-spin" />
@@ -825,7 +875,7 @@ export default function PengaturanTampilanPage() {
                     <Plus size={15} />
                   )}
                   <span>
-                    {editingMemberId ? 'Simpan Perubahan Pembuat' : 'Tambahkan ke Daftar Pembuat'}
+                    {editingMemberId ? 'Simpan Perubahan Anggota' : 'Tambahkan ke Daftar Pembuat'}
                   </span>
                 </button>
               </form>
