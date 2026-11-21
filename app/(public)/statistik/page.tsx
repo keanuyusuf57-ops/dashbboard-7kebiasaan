@@ -4,6 +4,7 @@ import { Suspense, useState, useEffect, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import RadarChart7KAIH from '@/components/public/RadarChart7KAIH'
+import PersonalHabitCoach from '@/components/public/PersonalHabitCoach'
 import { createClient } from '@/lib/supabase/client'
 import {
   BarChart3,
@@ -13,7 +14,6 @@ import {
   CheckCircle2,
   TrendingUp,
   User,
-  Lightbulb,
   Sunrise,
   HeartHandshake,
   Dumbbell,
@@ -430,6 +430,8 @@ function StatistikContent() {
 
   const indicatorSums = Array(7).fill(0)
   const indicatorCounts = Array(7).fill(0)
+  const rawTenSums = Array(10).fill(0)
+  const rawTenCounts = Array(10).fill(0)
   let totalRowScoreSum = 0
   let validRowCount = 0
 
@@ -437,6 +439,10 @@ function StatistikContent() {
     const scores = parseRowScores(r)
     scores.forEach((val: number, qIdx: number) => {
       if (val >= 1 && val <= 4) {
+        if (qIdx < 10) {
+          rawTenSums[qIdx] += val
+          rawTenCounts[qIdx] += 1
+        }
         const cat = questionMetas[qIdx]?.category || ''
         const indIdx = mapCategoryToIndicatorIndex(cat, qIdx)
         indicatorSums[indIdx] += val
@@ -450,6 +456,10 @@ function StatistikContent() {
       validRowCount += 1
     }
   })
+
+  const studentTenAverages = Array.from({ length: 10 }, (_, idx) =>
+    rawTenCounts[idx] > 0 ? Number((rawTenSums[idx] / rawTenCounts[idx]).toFixed(2)) : 0
+  )
 
   const indicatorStats = SEVEN_KAIH_INDICATORS.map((ind, idx) => {
     const avg =
@@ -475,10 +485,6 @@ function StatistikContent() {
   }))
 
   const latestStudent = rows[0]
-
-  const weakestIndicator = [...indicatorStats]
-    .filter((item) => item.avg > 0)
-    .sort((a, b) => a.avg - b.avg)[0]
 
   return (
     <div className="space-y-5 font-sans text-[#090D16]">
@@ -766,23 +772,11 @@ function StatistikContent() {
             </div>
           </div>
 
-          {/* Rekomendasi Peningkatan Kebiasaan */}
-          {weakestIndicator && (
-            <div className="kaih-glass-card bg-amber-50/90 border-amber-300/80 p-5 rounded-3xl flex items-start gap-3.5">
-              <div className="h-10 w-10 rounded-2xl bg-amber-400/25 text-amber-800 flex items-center justify-center shrink-0">
-                <Lightbulb size={20} />
-              </div>
-              <div className="space-y-1">
-                <p className="text-xs font-extrabold uppercase tracking-wider text-amber-900">
-                  Saran Peningkatan Kebiasaan ({weakestIndicator.short} •{' '}
-                  {weakestIndicator.avg.toFixed(2)} / 4.0)
-                </p>
-                <p className="text-xs sm:text-sm font-semibold text-amber-950 leading-relaxed">
-                  {weakestIndicator.tip}
-                </p>
-              </div>
-            </div>
-          )}
+          {/* AI Personal Habit Coach (3 Langkah Mikro Harian Spesifik Siswa) */}
+          <PersonalHabitCoach
+            studentName={latestStudent?.nama || 'Siswa Hebat'}
+            studentAverages={studentTenAverages}
+          />
 
           {/* Riwayat Pengisian Pribadi */}
           <div className="kaih-glass-card p-6 rounded-3xl space-y-4">

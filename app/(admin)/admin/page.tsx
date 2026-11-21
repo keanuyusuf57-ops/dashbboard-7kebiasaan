@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import ClassActionPlanCard from '@/components/admin/ClassActionPlanCard'
+import ActivityGalleryManager from '@/components/admin/ActivityGalleryManager'
 import { createClient } from '@/lib/supabase/client'
 import {
   LayoutDashboard,
@@ -24,6 +26,8 @@ import {
   ArrowRight,
   Clock,
   Gamepad2,
+  MessageSquareText,
+  Trash2,
 } from 'lucide-react'
 
 const SEVEN_KAIH_INDICATORS = [
@@ -77,6 +81,15 @@ const SEVEN_KAIH_INDICATORS = [
     barGradient: 'from-violet-600 to-purple-400',
   },
 ]
+
+type FeedbackItem = {
+  id: string
+  nama_pengirim: string
+  kelas: string
+  kategori: string
+  pesan: string
+  created_at: string
+}
 
 function parseRowScores(row: any): number[] {
   if (Array.isArray(row?.answers_json) && row.answers_json.length > 0) {
@@ -134,25 +147,34 @@ export default function AdminDashboardPage() {
   const [questionCategories, setQuestionCategories] = useState<string[]>([])
   const [totalQuizSessions, setTotalQuizSessions] = useState<number>(0)
   const [totalBankSoal, setTotalBankSoal] = useState<number>(0)
+  const [feedbackList, setFeedbackList] = useState<FeedbackItem[]>([])
+  const [selectedPlanClass, setSelectedPlanClass] = useState<string>('')
   const [loading, setLoading] = useState(true)
 
   const loadDashboardData = useCallback(async () => {
     setLoading(true)
 
-    const [{ data: qData }, { count: quizCount }, { count: soalCount }] = await Promise.all([
-      supabase
-        .from('survey_questions')
-        .select('category, order_index')
-        .order('order_index', { ascending: true }),
-      supabase.from('hasil_kuis').select('*', { count: 'exact', head: true }),
-      supabase.from('bank_soal').select('*', { count: 'exact', head: true }),
-    ])
+    const [{ data: qData }, { count: quizCount }, { count: soalCount }, { data: fbData }] =
+      await Promise.all([
+        supabase
+          .from('survey_questions')
+          .select('category, order_index')
+          .order('order_index', { ascending: true }),
+        supabase.from('hasil_kuis').select('*', { count: 'exact', head: true }),
+        supabase.from('bank_soal').select('*', { count: 'exact', head: true }),
+        supabase
+          .from('student_feedback')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(20),
+      ])
 
     if (qData && qData.length > 0) {
       setQuestionCategories(qData.map((q) => q.category || ''))
     }
     if (quizCount !== null) setTotalQuizSessions(quizCount)
     if (soalCount !== null) setTotalBankSoal(soalCount)
+    if (fbData) setFeedbackList(fbData as FeedbackItem[])
 
     // Ambil seluruh data survey_responses secara bertahap (tanpa limit 1000)
     let allResponses: any[] = []
@@ -187,6 +209,14 @@ export default function AdminDashboardPage() {
     loadDashboardData()
   }, [loadDashboardData])
 
+  const handleDeleteFeedback = async (id: string) => {
+    if (!window.confirm('Hapus masukan siswa ini?')) return
+    const { error } = await supabase.from('student_feedback').delete().eq('id', id)
+    if (!error) {
+      setFeedbackList((prev) => prev.filter((item) => item.id !== id))
+    }
+  }
+
   // Kalkulasi Indeks 7 KAIH Seluruh Sekolah
   const indicatorSums = Array(7).fill(0)
   const indicatorCounts = Array(7).fill(0)
@@ -216,6 +246,19 @@ export default function AdminDashboardPage() {
     classCounter[kelas].count += 1
     if (avg > 0) classCounter[kelas].sum += avg
   })
+
+  const availableClasses = Object.keys(classCounter)
+    .filter((k) => k !== 'TANPA KELAS')
+    .sort()
+
+  const activePlanClass =
+    selectedPlanClass && availableClasses.includes(selectedPlanClass)
+      ? selectedPlanClass
+      : availableClasses[0] || ''
+
+  const activeClassRows = rows.filter(
+    (r) => (r.kelas || '').trim().toUpperCase() === activePlanClass
+  )
 
   const schoolAverage =
     validScoreRows > 0 ? Number((totalScoreSum / validScoreRows).toFixed(2)) : 0
@@ -422,6 +465,37 @@ export default function AdminDashboardPage() {
         </Link>
       </div>
 
+      {/* AI Action Plan Spesifik Per Kelas untuk Wali Kelas */}
+      {!loading && availableClasses.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 bg-white/95 p-4 rounded-2xl border border-slate-200/80">
+            <div>
+              <p className="text-xs font-black text-[#090D16]">
+                Pilih Kelas untuk Analisis Rencana Tindak Lanjut Wali Kelas:
+              </p>
+              <p className="text-[11px] text-slate-600">
+                Sistem mendeteksi kebiasaan dengan skor terendah pada kelas terpilih dan menyusun
+                rekomendasi programnya.
+              </p>
+            </div>
+
+            <select
+              value={activePlanClass}
+              onChange={(e) => setSelectedPlanClass(e.target.value)}
+              className="px-4 py-2 rounded-xl bg-indigo-50 border border-indigo-200 text-xs font-black text-indigo-950 focus:outline-none focus:ring-2 focus:ring-indigo-600 cursor-pointer"
+            >
+              {availableClasses.map((cls) => (
+                <option key={cls} value={cls}>
+                  Kelas {cls}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <ClassActionPlanCard selectedClass={activePlanClass} classRows={activeClassRows} />
+        </div>
+      )}
+
       {/* Grafik Capaian 7 Indikator & Kelas Teraktif */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Capaian 7 Pilar Kebiasaan */}
@@ -523,6 +597,73 @@ export default function AdminDashboardPage() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Manajemen Galeri Foto & Dokumentasi Kegiatan (/tentang) */}
+      <ActivityGalleryManager />
+
+      {/* Kotak Masuk Saran & Umpan Balik Siswa (Dari Navbar) */}
+      <div className="bg-white/95 backdrop-blur-md p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="font-heading text-base font-extrabold text-[#090D16] flex items-center gap-2">
+              <MessageSquareText size={18} className="text-indigo-700" />
+              <span>Kotak Masuk Saran &amp; Usulan Siswa ({feedbackList.length})</span>
+            </h2>
+            <p className="text-xs text-slate-600 mt-0.5">
+              Aspirasi kegiatan 7 KAIH dan masukan fitur yang dikirim siswa melalui tombol Saran di
+              Navbar.
+            </p>
+          </div>
+        </div>
+
+        {feedbackList.length === 0 ? (
+          <p className="text-xs text-slate-500 py-4 text-center bg-slate-50 rounded-2xl">
+            Belum ada saran atau masukan siswa yang masuk.
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {feedbackList.map((fb) => (
+              <div
+                key={fb.id}
+                className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-start justify-between gap-3"
+              >
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-black text-[#090D16]">{fb.nama_pengirim}</span>
+                    {fb.kelas && fb.kelas !== '-' && (
+                      <span className="px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-900 text-[10px] font-extrabold">
+                        {fb.kelas}
+                      </span>
+                    )}
+                    <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 text-[10px] font-extrabold">
+                      {fb.kategori}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-800 leading-relaxed">{fb.pesan}</p>
+                  <p className="text-[10px] text-slate-500 font-semibold">
+                    {new Date(fb.created_at).toLocaleString('id-ID', {
+                      day: '2-digit',
+                      month: 'short',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleDeleteFeedback(fb.id)}
+                  title="Hapus Masukan"
+                  className="p-1.5 rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-800 shrink-0 cursor-pointer"
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* 5 Pengisian Survei Terbaru */}

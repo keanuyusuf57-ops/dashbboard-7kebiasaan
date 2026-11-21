@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import ActivityGalleryManager from '@/components/admin/ActivityGalleryManager'
 import {
   Settings,
   Save,
@@ -430,7 +431,7 @@ export default function PengaturanTampilanPage() {
             Pengaturan Tampilan & Tim Nexara
           </h1>
           <p className="text-xs sm:text-sm text-indigo-100 mt-1">
-            Atur tampilan Beranda, penjelasan tujuan website di laman Tentang, profil pembuat dashboard, serta foto 7 kebiasaan.
+            Atur tampilan Beranda, penjelasan tujuan website di laman Tentang, profil pembuat dashboard, foto 7 kebiasaan, serta galeri kegiatan sekolah.
           </p>
         </div>
 
@@ -1027,6 +1028,9 @@ export default function PengaturanTampilanPage() {
               })}
             </div>
           </div>
+
+          {/* === BAGIAN 4: KELOLA GALERI FOTO & DOKUMENTASI KEGIATAN (LAMAN TENTANG) === */}
+          <ActivityGalleryManager />
         </>
       )}
     </div>

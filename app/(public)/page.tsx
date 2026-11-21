@@ -29,60 +29,82 @@ import {
   TrendingUp,
   Target,
   Lightbulb,
+  Compass,
+  Medal,
 } from 'lucide-react'
+
+const TOTAL_ABSEN_PER_KELAS = 36
 
 const INDICATOR_DETAILS = [
   {
     short: 'Bangun Pagi',
     full: 'Saya bangun pagi tepat waktu.',
-    action: 'Programkan pengingat pagi bersama wali kelas serta apresiasi siswa hadir tepat waktu sebelum pukul 06.50 WIB.',
+    action:
+      'Programkan pengingat pagi bersama wali kelas serta apresiasi siswa hadir tepat waktu sebelum pukul 06.50 WIB.',
   },
   {
     short: 'Beribadah',
     full: 'Saya beribadah sesuai keyakinan.',
-    action: 'Optimalkan pembiasaan doa bersama sebelum jam pertama dan shalat berjamaah/kegiatan rohani terjadwal.',
+    action:
+      'Optimalkan pembiasaan doa bersama sebelum jam pertama dan kegiatan rohani terjadwal.',
   },
   {
     short: 'Berolahraga',
     full: 'Saya berolahraga secara teratur.',
-    action: 'Aktifkan senam pagi Jumat sehat dan tantangan kebugaran mingguan antar kelas.',
+    action:
+      'Aktifkan senam pagi Jumat sehat dan tantangan kebugaran mingguan antar kelas.',
   },
   {
     short: 'Makan Sehat',
     full: 'Saya mengonsumsi makanan sehat dan bergizi.',
-    action: 'Edukasi sarapan bergizi sebelum berangkat sekolah dan kampanye kantin sehat minim minuman berpemanis.',
+    action:
+      'Edukasi sarapan bergizi sebelum berangkat sekolah dan kampanye kantin sehat.',
   },
   {
     short: 'Gemar Membaca',
     full: 'Saya meluangkan waktu untuk membaca.',
-    action: 'Terapkan gerakan literasi 15 menit membaca buku non-pelajaran sebelum pembelajaran dimulai.',
+    action:
+      'Terapkan gerakan literasi 15 menit membaca buku non-pelajaran sebelum pembelajaran dimulai.',
   },
   {
     short: 'Bermasyarakat',
     full: 'Saya membantu orang tua dan peduli lingkungan.',
-    action: 'Berikan jurnal bakti sosial rumah dan piket kebersihan lingkungan kelas berbasis kolaborasi.',
+    action:
+      'Berikan jurnal bakti sosial rumah dan piket kebersihan lingkungan kelas berbasis kolaborasi.',
   },
   {
     short: 'Tidur Cepat',
     full: 'Saya beristirahat dengan cukup.',
-    action: 'Sosialisasikan batas penggunaan gawai maksimal pukul 21.30 WIB agar siswa tidur cukup sebelum pukul 22.00.',
+    action:
+      'Sosialisasikan batas penggunaan gawai maksimal pukul 21.30 WIB agar siswa tidur cukup sebelum pukul 22.00.',
   },
   {
     short: 'Belajar',
     full: 'Saya belajar dengan tekun.',
-    action: 'Bentuk kelompok belajar sebaya (peer tutoring) untuk mendampingi materi pelajaran yang sulit.',
+    action:
+      'Bentuk kelompok belajar sebaya (peer tutoring) untuk mendampingi materi pelajaran yang sulit.',
   },
   {
     short: 'Bersosialisasi',
     full: 'Saya berinteraksi dengan baik.',
-    action: 'Perkuat kegiatan kerja kelompok lintas minat dan budaya saling menghargai di lingkungan sekolah.',
+    action:
+      'Perkuat kegiatan kerja kelompok lintas minat dan budaya saling menghargai di sekolah.',
   },
   {
     short: 'Mengatur Waktu',
     full: 'Saya mengatur waktu dengan baik.',
-    action: 'Latih siswa menyusun jadwal prioritas harian antara tugas akademik, organisasi, dan istirahat.',
+    action:
+      'Latih siswa menyusun jadwal prioritas harian antara tugas akademik, organisasi, dan istirahat.',
   },
 ]
+
+type ClassRankingItem = {
+  kelas: string
+  avgScore: number
+  participationPct: number
+  compositePoints: number
+  studentCount: number
+}
 
 type DashboardAnalytics = {
   completionPct: number
@@ -95,8 +117,28 @@ type DashboardAnalytics = {
   userStreak: number
   userXp: number
   leaderboard: { name: string; kelas: string; xp: number }[]
+  classLeaderboard: ClassRankingItem[]
   topIndicatorIdx: number
   lowestIndicatorIdx: number
+  dailyVelocity: number
+  estimatedDaysTo85: number
+  estimatedDaysTo90: number
+}
+
+function normalizeClassName(raw: string): string {
+  return (raw || '')
+    .replace(/^kelas\s+/i, '')
+    .replace(/\./g, '-')
+    .trim()
+    .toUpperCase()
+}
+
+function normalizeStudentName(raw: string): string {
+  return (raw || '')
+    .toLowerCase()
+    .replace(/[^a-z\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
 function parseRowScores(row: any): (number | null)[] {
@@ -135,21 +177,137 @@ function processSupabaseRows(rows: any[], email: string | null = null): Dashboar
     }
   })
 
-  const students = new Map<string, { name: string; kelas: string; score: number; count: number }>()
+  // 1. Peta referensi dari baris yang sudah memiliki nomor absen valid (1..36)
+  const emailToAbsen = new Map<string, number>()
+  const nameToAbsen = new Map<string, number>()
+  const prefixToAbsen = new Map<string, number>()
+  const usedAbsenByClass = new Map<string, Set<number>>()
+
   rows.forEach((row) => {
-    const studentKey = String(row.email || row.nama || 'anonim').trim().toLowerCase()
+    const cls = normalizeClassName(row.kelas)
+    const absenNum = Number(row.no_absen)
+    if (!cls || isNaN(absenNum) || absenNum < 1 || absenNum > TOTAL_ABSEN_PER_KELAS) return
+
+    if (!usedAbsenByClass.has(cls)) usedAbsenByClass.set(cls, new Set())
+    usedAbsenByClass.get(cls)!.add(absenNum)
+
+    const cleanEmail = String(row.email || '').trim().toLowerCase()
+    const cleanNameNorm = normalizeStudentName(row.nama || '')
+    const prefix = cleanNameNorm.split(' ').slice(0, 2).join(' ')
+
+    if (cleanEmail) emailToAbsen.set(`${cls}::${cleanEmail}`, absenNum)
+    if (cleanNameNorm.length >= 3) nameToAbsen.set(`${cls}::${cleanNameNorm}`, absenNum)
+    if (prefix.length >= 5 && !prefixToAbsen.has(`${cls}::${prefix}`)) {
+      prefixToAbsen.set(`${cls}::${prefix}`, absenNum)
+    }
+  })
+
+  const orphanKeyToSlot = new Map<string, number>()
+  const students = new Map<string, { name: string; kelas: string; score: number; count: number }>()
+  const classStats = new Map<
+    string,
+    { totalScore: number; scoreCount: number; uniqueStudents: Set<string>; submissions: number }
+  >()
+  const uniqueDates = new Set<string>()
+
+  rows.forEach((row) => {
+    if (row.created_at) {
+      uniqueDates.add(new Date(row.created_at).toISOString().slice(0, 10))
+    }
+
+    const cls = normalizeClassName(row.kelas)
+    const cleanEmail = String(row.email || '').trim().toLowerCase()
+    const cleanName = String(row.nama || 'Siswa').trim()
+    const cleanNameNorm = normalizeStudentName(cleanName)
+    const prefix = cleanNameNorm.split(' ').slice(0, 2).join(' ')
+
+    let absenNum = Number(row.no_absen)
+    if (isNaN(absenNum) || absenNum < 1 || absenNum > TOTAL_ABSEN_PER_KELAS) {
+      absenNum =
+        emailToAbsen.get(`${cls}::${cleanEmail}`) ??
+        nameToAbsen.get(`${cls}::${cleanNameNorm}`) ??
+        prefixToAbsen.get(`${cls}::${prefix}`) ??
+        0
+    }
+
+    // Alokasikan entri no_absen = 0 yang belum cocok ke slot kosong 1..36 di kelasnya
+    if (absenNum === 0 && cls && cls !== '-') {
+      const orphanId = `${cls}::${cleanNameNorm || cleanEmail || row.id}`
+      if (orphanKeyToSlot.has(orphanId)) {
+        absenNum = orphanKeyToSlot.get(orphanId)!
+      } else {
+        const used = usedAbsenByClass.get(cls) || new Set<number>()
+        for (let slot = 1; slot <= TOTAL_ABSEN_PER_KELAS; slot++) {
+          if (!used.has(slot)) {
+            absenNum = slot
+            used.add(slot)
+            usedAbsenByClass.set(cls, used)
+            orphanKeyToSlot.set(orphanId, slot)
+            break
+          }
+        }
+      }
+    }
+
+    const hasValidAbsen = absenNum >= 1 && absenNum <= TOTAL_ABSEN_PER_KELAS
+    const studentKey =
+      cls && cls !== '-'
+        ? hasValidAbsen
+          ? `${cls}::ABSEN-${absenNum}`
+          : `${cls}::ABSEN-${TOTAL_ABSEN_PER_KELAS}`
+        : String(cleanEmail || cleanName || row.id).toLowerCase()
+
     const values = parseRowScores(row).filter((value): value is number => value !== null)
     if (!values.length) return
+
+    const rowAvg = values.reduce((sum, value) => sum + value, 0) / values.length
+
     const student = students.get(studentKey) || {
-      name: row.nama || 'Siswa',
-      kelas: row.kelas || '-',
+      name: cleanName,
+      kelas: cls || '-',
       score: 0,
       count: 0,
     }
-    student.score += values.reduce((sum, value) => sum + value, 0) / values.length
+    if (cleanName.length > student.name.length && !cleanName.includes('@')) {
+      student.name = cleanName
+    }
+    student.score += rowAvg
     student.count += 1
     students.set(studentKey, student)
+
+    if (cls && cls !== '-') {
+      const cEntry = classStats.get(cls) || {
+        totalScore: 0,
+        scoreCount: 0,
+        uniqueStudents: new Set<string>(),
+        submissions: 0,
+      }
+      cEntry.totalScore += rowAvg
+      cEntry.scoreCount += 1
+      cEntry.uniqueStudents.add(studentKey)
+      cEntry.submissions += 1
+      classStats.set(cls, cEntry)
+    }
   })
+
+  const classLeaderboard: ClassRankingItem[] = Array.from(classStats.entries())
+    .map(([kelas, stat]) => {
+      const avgScore = stat.scoreCount > 0 ? stat.totalScore / stat.scoreCount : 0
+      const studentCount = Math.min(TOTAL_ABSEN_PER_KELAS, stat.uniqueStudents.size)
+      const participationPct = Math.min(
+        100,
+        Math.round((studentCount / TOTAL_ABSEN_PER_KELAS) * 100)
+      )
+      const compositePoints = Math.round((avgScore / 4) * 70 + (participationPct / 100) * 30)
+      return {
+        kelas,
+        avgScore: Number(avgScore.toFixed(2)),
+        participationPct,
+        compositePoints,
+        studentCount,
+      }
+    })
+    .sort((a, b) => b.compositePoints - a.compositePoints || b.avgScore - a.avgScore)
 
   const leaderboard = Array.from(students.values())
     .map((student) => ({
@@ -170,7 +328,6 @@ function processSupabaseRows(rows: any[], email: string | null = null): Dashboar
     : 0
 
   const dimIndices = [[0], [1, 2], [3, 4], [5], [6], [7], [8, 9]]
-
   const sevenDimensions = dimIndices.map((idxs, dimIdx) => {
     const vals = idxs.map((i) => barAverages[i]).filter((v) => v > 0)
     const avg = vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : 0
@@ -183,8 +340,16 @@ function processSupabaseRows(rows: any[], email: string | null = null): Dashboar
     }
   })
 
+  const completionPct = Math.min(100, Math.round((overallScore / 4) * 100))
+  const activeDays = Math.max(1, uniqueDates.size)
+  const dailyVelocity = Math.max(1, Math.round(rows.length / activeDays))
+  const gap85 = Math.max(0, 85 - completionPct)
+  const gap90 = Math.max(0, 90 - completionPct)
+  const estimatedDaysTo85 = gap85 === 0 ? 0 : Math.max(2, Math.ceil((gap85 * 35) / dailyVelocity))
+  const estimatedDaysTo90 = gap90 === 0 ? 0 : Math.max(4, Math.ceil((gap90 * 42) / dailyVelocity))
+
   return {
-    completionPct: Math.min(100, Math.round((overallScore / 4) * 100)),
+    completionPct,
     overallScore,
     totalResponses: rows.length,
     uniqueStudentsCount: students.size,
@@ -194,8 +359,12 @@ function processSupabaseRows(rows: any[], email: string | null = null): Dashboar
     userStreak: currentStudent.length,
     userXp: Math.round(userScore * 100),
     leaderboard,
+    classLeaderboard,
     topIndicatorIdx,
     lowestIndicatorIdx,
+    dailyVelocity,
+    estimatedDaysTo85,
+    estimatedDaysTo90,
   }
 }
 
@@ -225,18 +394,18 @@ const GLOBAL_SEARCH_INDEX = [
     keywords: 'game kuis main quest xp level karakter',
   },
   {
-    title: 'Statistik Pribadi & Rapor Karakter PNG',
+    title: 'Statistik Pribadi & AI Habit Coach',
     category: 'Halaman Statistik',
-    desc: 'Lihat grafik radar pribadi, action plan otomatis, riwayat harian, dan unduh rapor.',
+    desc: 'Lihat grafik radar pribadi, pelatih kebiasaan AI, riwayat harian, dan unduh rapor.',
     href: '/statistik',
-    keywords: 'statistik pribadi rapor nilai rata-rata radar riwayat unduh png excel',
+    keywords: 'statistik pribadi rapor nilai rata-rata radar riwayat unduh png excel coach',
   },
   {
-    title: 'Tentang 7 KAIH & Tim Pengembang Nexara',
+    title: 'Tentang 7 KAIH, Galeri & Tim Nexara',
     category: 'Halaman Tentang',
-    desc: 'Informasi gerakan karakter SMAN 5 Semarang dan profil tim pengembang.',
+    desc: 'Informasi gerakan karakter SMAN 5 Semarang, galeri kegiatan, dan profil tim.',
     href: '/tentang',
-    keywords: 'tentang tim pengembang nexara sman 5 semarang profil pembina developer',
+    keywords: 'tentang tim pengembang nexara sman 5 semarang galeri foto kegiatan',
   },
   {
     title: 'Panduan 01: Bangun Pagi',
@@ -481,7 +650,9 @@ export default function HomePage() {
     while (true) {
       const { data, error } = await supabase
         .from('survey_responses')
-        .select('id, nama, kelas, email, q1, q2, q3, q4, q5, q6, q7, q8, q9, q10, answers_json')
+        .select(
+          'id, nama, no_absen, kelas, email, created_at, q1, q2, q3, q4, q5, q6, q7, q8, q9, q10, answers_json'
+        )
         .range(from, from + pageSize - 1)
 
       if (error || !data || data.length === 0) break
@@ -534,7 +705,7 @@ export default function HomePage() {
   const selectedPct = Math.min(100, Math.round((selectedAvg / 4) * 100))
   const selectedPredicate = getPredicate(selectedAvg)
 
- const safeTopIdx =
+  const safeTopIdx =
     typeof analytics.topIndicatorIdx === 'number' && INDICATOR_DETAILS[analytics.topIndicatorIdx]
       ? analytics.topIndicatorIdx
       : 0
@@ -553,8 +724,8 @@ export default function HomePage() {
     <div className="space-y-5 font-sans text-[#090D16]">
       {/* Paling Atas: Kolom Pencarian Bersih */}
       <div className="relative z-20">
-        <div className="kaih-glass-card rounded-3xl px-4 sm:px-5 py-3 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2 bg-white/90 border border-white px-4 py-2 rounded-full flex-1 min-w-[220px] focus-within:ring-2 focus-within:ring-indigo-500">
+        <div className="kaih-glass-card rounded-3xl px-4 sm:px-5 py-3 flex flex-wrap items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2 bg-white/90 border border-white px-4 py-2 rounded-full flex-1 min-w-[200px] focus-within:ring-2 focus-within:ring-indigo-500">
             <Search size={15} className="text-slate-700 shrink-0" />
             <input
               type="text"
@@ -577,10 +748,10 @@ export default function HomePage() {
           {savedStudentEmail && (
             <Link
               href="/statistik"
-              className="inline-flex items-center gap-1.5 bg-white/90 border border-white text-slate-900 px-3.5 py-2 rounded-full text-xs font-bold hover:bg-white transition-all shrink-0"
+              className="hidden sm:inline-flex items-center gap-1.5 bg-white/90 border border-white text-slate-900 px-3.5 py-2 rounded-full text-xs font-bold hover:bg-white transition-all shrink-0"
             >
               <UserCheck size={13} className="text-indigo-700" />
-              <span className="max-w-[180px] truncate">{savedStudentEmail}</span>
+              <span className="max-w-[160px] truncate">{savedStudentEmail}</span>
             </Link>
           )}
         </div>
@@ -624,9 +795,7 @@ export default function HomePage() {
                         {res.category}
                       </span>
                       <p className="text-xs font-extrabold text-[#090D16] mt-0.5">{res.title}</p>
-                      <p className="text-[11px] text-slate-700 line-clamp-1 mt-0.5">
-                        {res.desc}
-                      </p>
+                      <p className="text-[11px] text-slate-700 line-clamp-1 mt-0.5">{res.desc}</p>
                     </div>
                     <ArrowUpRight size={15} className="text-indigo-700 shrink-0 mt-1" />
                   </Link>
@@ -643,7 +812,7 @@ export default function HomePage() {
         )}
       </div>
 
-      {/* Hero Section dengan Background Logo SMALA Full Lebar & Scroll Vertikal Halus */}
+      {/* Hero Section */}
       <Suspense
         fallback={
           <div className="h-[220px] bg-indigo-950/80 rounded-3xl flex items-center justify-center text-white">
@@ -654,44 +823,70 @@ export default function HomePage() {
         <HeroSection />
       </Suspense>
 
-      {/* Banner Partisipasi Siswa Live dari Supabase */}
-      <div className="kaih-glass-card p-4 sm:p-5 rounded-3xl space-y-2.5">
-        <div className="flex items-center justify-between gap-2">
-          <span className="font-heading text-sm sm:text-base font-extrabold text-[#090D16]">
-            Total Siswa Berpartisipasi
-          </span>
+      {/* Banner Partisipasi & Proyeksi Target Ketercapaian Karakter Sekolah */}
+      <div className="kaih-glass-card p-5 sm:p-6 rounded-3xl space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <span className="font-heading text-sm sm:text-base font-extrabold text-[#090D16]">
+              Total Siswa Berpartisipasi &amp; Proyeksi Target Sekolah
+            </span>
+            <p className="text-xs text-slate-700 font-medium mt-0.5">
+              Laju pengisian rata-rata{' '}
+              <strong className="text-indigo-800">{analytics.dailyVelocity} rekapan/hari</strong>{' '}
+              dari total {analytics.totalResponses.toLocaleString('id-ID')} data masuk
+            </p>
+          </div>
           <span className="font-heading text-base sm:text-lg font-black text-indigo-700">
-            {analytics.uniqueStudentsCount.toLocaleString('id-ID')} Siswa
+            {analytics.uniqueStudentsCount.toLocaleString('id-ID')} Siswa ({analytics.completionPct}
+            %)
           </span>
         </div>
+
         <div className="w-full h-3 bg-white/80 rounded-full overflow-hidden p-0.5 border border-white">
           <div
             className="h-full bg-gradient-to-r from-indigo-600 via-violet-500 to-sky-500 rounded-full transition-all duration-700"
             style={{ width: `${analytics.completionPct}%` }}
           />
         </div>
-        <p className="text-xs text-slate-800 font-semibold">
-          {analytics.completionPct}% indeks rata-rata kebiasaan dari{' '}
-          <strong className="text-[#090D16]">
-            {analytics.totalResponses.toLocaleString('id-ID')} rekapan
-          </strong>{' '}
-          database survei (Skala 4.0)
-        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+          <div className="bg-white/80 border border-white rounded-2xl px-4 py-2.5 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+              <Compass size={15} className="text-emerald-600 shrink-0" />
+              <span>Proyeksi Target 85% (Sangat Baik)</span>
+            </div>
+            <span className="text-xs font-black text-emerald-800 bg-emerald-100 px-2.5 py-1 rounded-lg">
+              {analytics.estimatedDaysTo85 === 0
+                ? 'Sudah Tercapai!'
+                : `± ${analytics.estimatedDaysTo85} Hari Aktif`}
+            </span>
+          </div>
+
+          <div className="bg-white/80 border border-white rounded-2xl px-4 py-2.5 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+              <Compass size={15} className="text-indigo-600 shrink-0" />
+              <span>Proyeksi Target 90% (Unggul)</span>
+            </div>
+            <span className="text-xs font-black text-indigo-900 bg-indigo-100 px-2.5 py-1 rounded-lg">
+              {analytics.estimatedDaysTo90 === 0
+                ? 'Sudah Tercapai!'
+                : `± ${analytics.estimatedDaysTo90} Hari Aktif`}
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* Insight Analisis Data & Rekomendasi Tindak Lanjut Sekolah */}
       {!loadingChart && analytics.totalResponses > 0 && (
         <section className="kaih-glass-card p-5 sm:p-6 rounded-3xl space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider text-indigo-800 bg-indigo-100 px-3 py-1 rounded-full">
-                <Lightbulb size={13} />
-                <span>Analisis Pola &amp; Rekomendasi Sekolah</span>
-              </span>
-              <h2 className="font-heading text-base sm:text-lg font-extrabold text-[#090D16] mt-2">
-                Temuan Utama &amp; Prioritas Pembinaan Karakter SMAN 5 Semarang
-              </h2>
-            </div>
+          <div>
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider text-indigo-800 bg-indigo-100 px-3 py-1 rounded-full">
+              <Lightbulb size={13} />
+              <span>Analisis Pola &amp; Rekomendasi Sekolah</span>
+            </span>
+            <h2 className="font-heading text-base sm:text-lg font-extrabold text-[#090D16] mt-2">
+              Temuan Utama &amp; Prioritas Pembinaan Karakter SMAN 5 Semarang
+            </h2>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
@@ -851,6 +1046,71 @@ export default function HomePage() {
           </div>
         </div>
       </div>
+
+      {/* Klasemen Antar Kelas (Menjaga Privasi Skor Pribadi) */}
+      {analytics.classLeaderboard.length > 0 && (
+        <section className="kaih-glass-card p-5 sm:p-6 rounded-3xl space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider text-amber-900 bg-amber-100 px-3 py-1 rounded-full">
+                <Medal size={13} />
+                <span>Klasemen Kolektif Antar Kelas</span>
+              </span>
+              <h2 className="font-heading text-base sm:text-lg font-extrabold text-[#090D16] mt-2">
+                Kelas Paling Konsisten &amp; Partisipatif SMAN 5 Semarang
+              </h2>
+            </div>
+            <span className="text-xs font-bold text-slate-700">
+              Gabungan Skor Kebiasaan (70%) + Partisipasi Kelas (30%)
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            {analytics.classLeaderboard.slice(0, 5).map((clsItem, idx) => (
+              <div
+                key={clsItem.kelas}
+                className="bg-white/85 border border-white rounded-2xl p-4 flex flex-col justify-between space-y-2 shadow-2xs"
+              >
+                <div className="flex items-center justify-between">
+                  <span
+                    className={`px-2.5 py-0.5 rounded-lg text-[11px] font-black ${
+                      idx === 0
+                        ? 'bg-amber-400 text-slate-950'
+                        : idx === 1
+                        ? 'bg-slate-300 text-slate-900'
+                        : idx === 2
+                        ? 'bg-orange-300 text-slate-950'
+                        : 'bg-indigo-100 text-indigo-900'
+                    }`}
+                  >
+                    #{idx + 1}
+                  </span>
+                  <span className="text-xs font-black text-indigo-800">
+                    {clsItem.compositePoints} Poin
+                  </span>
+                </div>
+
+                <div>
+                  <p className="font-heading text-lg font-black text-[#090D16]">
+                    Kelas {clsItem.kelas}
+                  </p>
+                  <p className="text-[11px] font-semibold text-slate-600">
+                    {clsItem.studentCount}/{TOTAL_ABSEN_PER_KELAS} Siswa (
+                    {clsItem.participationPct}%)
+                  </p>
+                </div>
+
+                <div className="pt-1 border-t border-slate-200/70 flex items-center justify-between text-[11px] font-bold">
+                  <span className="text-slate-600">Rata-rata</span>
+                  <span className="text-emerald-800 font-black">
+                    {clsItem.avgScore.toFixed(2)} / 4.0
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Chart Batang Rata-Rata Jawaban Siswa */}
       <div className="kaih-glass-card p-5 sm:p-8 rounded-3xl space-y-5 sm:space-y-6">

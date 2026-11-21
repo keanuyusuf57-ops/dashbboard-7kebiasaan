@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import FeedbackModal from '@/components/public/FeedbackPortal'
 import {
   Home,
   ClipboardList,
@@ -10,6 +11,7 @@ import {
   PieChart,
   Info,
   Shield,
+  MessageSquarePlus,
   PanelLeftOpen,
   PanelLeftClose,
 } from 'lucide-react'
@@ -54,6 +56,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
   const pathname = usePathname()
   const [isPinned, setIsPinned] = useState<boolean>(false)
   const [isHovered, setIsHovered] = useState<boolean>(false)
+  const [feedbackOpen, setFeedbackOpen] = useState<boolean>(false)
   const isSidebarOpen = isPinned || isHovered
 
   return (
@@ -82,7 +85,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
             )}
           </Link>
 
-          <nav className="flex flex-col gap-2">
+          <nav className="flex flex-col gap-1.5">
             {NAV_ITEMS.map((item) => {
               const Icon = item.icon
               const isActive =
@@ -107,6 +110,21 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
                 </Link>
               )
             })}
+
+            {/* Tombol Kirim Umpan Balik di Navbar */}
+            <button
+              type="button"
+              onClick={() => setFeedbackOpen(true)}
+              title="Kirim Umpan Balik & Saran"
+              className={`h-11 rounded-2xl flex items-center transition-all cursor-pointer text-indigo-900 bg-indigo-100/80 hover:bg-indigo-200/85 ${
+                isSidebarOpen ? 'px-3.5 gap-3 justify-start' : 'w-11 mx-auto justify-center'
+              }`}
+            >
+              <MessageSquarePlus size={19} className="shrink-0 text-indigo-700" />
+              {isSidebarOpen && (
+                <span className="text-xs font-extrabold whitespace-nowrap">Kirim Saran</span>
+              )}
+            </button>
           </nav>
 
           <button
@@ -131,15 +149,15 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
         </div>
       </aside>
 
-      {/* Konten Utama (Langsung dimulai dari Bar Pencarian di atas) */}
+      {/* Konten Utama */}
       <div className="flex-1 min-w-0 px-3 sm:px-6 lg:pr-7 lg:pl-2 py-3.5 sm:py-5 pb-24 lg:pb-8 max-w-[1440px] mx-auto w-full">
         <main className="w-full min-w-0">{children}</main>
       </div>
 
-      {/* Navigasi Bawah Mobile */}
+      {/* Navigasi Bawah Mobile (Termasuk Tombol Saran) */}
       <nav
         aria-label="Navigasi Mobile"
-        className="lg:hidden fixed bottom-2.5 inset-x-2.5 z-40 kaih-glass-card rounded-2xl px-1.5 py-1.5 flex items-center justify-between gap-0.5 shadow-xl"
+        className="lg:hidden fixed bottom-2.5 inset-x-2 z-40 kaih-glass-card rounded-2xl px-1 py-1.5 flex items-center justify-between gap-0.5 shadow-xl"
       >
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon
@@ -150,20 +168,32 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
             <Link
               key={item.href}
               href={item.href}
-              className={`flex-1 min-w-0 flex flex-col items-center justify-center gap-0.5 py-1.5 px-1 rounded-xl text-[10px] font-bold transition-all active:scale-95 ${
+              className={`flex-1 min-w-0 flex flex-col items-center justify-center gap-0.5 py-1.5 px-0.5 rounded-xl text-[10px] font-bold transition-all active:scale-95 ${
                 isActive
                   ? 'bg-blue-900 text-amber-300 shadow-xs'
                   : 'text-slate-700 hover:text-blue-900'
               }`}
             >
-              <Icon size={16} strokeWidth={isActive ? 2.5 : 2} className="shrink-0" />
+              <Icon size={15} strokeWidth={isActive ? 2.5 : 2} className="shrink-0" />
               <span className="truncate w-full text-center leading-tight">
                 {item.mobileLabel}
               </span>
             </Link>
           )
         })}
+
+        <button
+          type="button"
+          onClick={() => setFeedbackOpen(true)}
+          className="flex-1 min-w-0 flex flex-col items-center justify-center gap-0.5 py-1.5 px-0.5 rounded-xl text-[10px] font-extrabold text-indigo-800 bg-indigo-100/80 active:scale-95 cursor-pointer"
+        >
+          <MessageSquarePlus size={15} className="shrink-0" />
+          <span className="truncate w-full text-center leading-tight">Saran</span>
+        </button>
       </nav>
+
+      {/* Modal Pop-up Umpan Balik */}
+      <FeedbackModal isOpen={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
     </div>
   )
 }

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import ActivityGallery from '@/components/public/ActivityGallery'
 import { createClient } from '@/lib/supabase/client'
 import {
   Info,
@@ -202,6 +203,9 @@ export default function TentangPage() {
           ))}
         </div>
       </section>
+
+      {/* === GALERI DOKUMENTASI KEGIATAN 7 KAIH SMAN 5 SEMARANG === */}
+      <ActivityGallery />
 
       {/* === TIM PENGEMBANG NEXARA === */}
       <section className="kaih-glass-card p-6 sm:p-7 rounded-3xl space-y-5">

@@ -38,6 +38,14 @@ function normalizeClassName(raw: string): string {
     .toUpperCase()
 }
 
+function normalizeStudentName(raw: string): string {
+  return (raw || '')
+    .toLowerCase()
+    .replace(/[^a-z\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 function sortClassNaturally(a: string, b: string): number {
   const rank: Record<string, number> = { X: 1, XI: 2, XII: 3 }
   const [gradeA, numA] = a.split('-')
@@ -144,54 +152,89 @@ export default function AdminDatabasePage() {
     })
   }, [rows, selectedDate])
 
-  const uniqueFilledCountByClass = useMemo(() => {
-    const map: Record<string, Set<string>> = {}
+  // === PENGGABUNGAN CERDAS PER SISWA (TERKUNCI MAKSIMAL 36 SLOT ABSEN PER KELAS) ===
+  const allMergedStudents = useMemo(() => {
+    const emailToAbsen = new Map<string, number>()
+    const nameToAbsen = new Map<string, number>()
+    const prefixToAbsen = new Map<string, number>()
+
+    // 1. Peta referensi dari baris yang sudah memiliki nomor absen valid (1..36)
     dateFilteredRows.forEach((r) => {
       const cls = normalizeClassName(r.kelas)
-      if (!cls) return
-      if (!map[cls]) map[cls] = new Set()
       const absenNum = Number(r.no_absen)
-      const studentId =
-        absenNum >= 1 && absenNum <= 45
-          ? `ABSEN-${absenNum}`
-          : (r.email || r.nama || r.id).trim().toLowerCase()
-      map[cls].add(studentId)
-    })
-    const counts: Record<string, number> = {}
-    Object.keys(map).forEach((cls) => {
-      counts[cls] = map[cls].size
-    })
-    return counts
-  }, [dateFilteredRows])
+      if (!cls || isNaN(absenNum) || absenNum < 1 || absenNum > TOTAL_ABSEN_PER_KELAS) return
 
-  // === PENGGABUNGAN RIWAYAT PER SISWA & PEMANTAUAN ABSEN 1-36 ===
-  const mergedStudents = useMemo(() => {
-    const classFiltered =
-      selectedClass === 'ALL'
-        ? dateFilteredRows
-        : dateFilteredRows.filter((r) => normalizeClassName(r.kelas) === selectedClass)
+      const cleanEmail = (r.email || '').trim().toLowerCase()
+      const cleanNameNorm = normalizeStudentName(r.nama)
+      const prefix = cleanNameNorm.split(' ').slice(0, 2).join(' ')
 
+      if (cleanEmail) emailToAbsen.set(`${cls}::${cleanEmail}`, absenNum)
+      if (cleanNameNorm.length >= 3) nameToAbsen.set(`${cls}::${cleanNameNorm}`, absenNum)
+      if (prefix.length >= 5 && !prefixToAbsen.has(`${cls}::${prefix}`)) {
+        prefixToAbsen.set(`${cls}::${prefix}`, absenNum)
+      }
+    })
+
+    // 2. Catat slot absen 1..36 yang sudah terpakai per kelas
+    const usedAbsenByClass = new Map<string, Set<number>>()
+    dateFilteredRows.forEach((r) => {
+      const cls = normalizeClassName(r.kelas)
+      const absenNum = Number(r.no_absen)
+      if (cls && absenNum >= 1 && absenNum <= TOTAL_ABSEN_PER_KELAS) {
+        if (!usedAbsenByClass.has(cls)) usedAbsenByClass.set(cls, new Set())
+        usedAbsenByClass.get(cls)!.add(absenNum)
+      }
+    })
+
+    const orphanKeyToSlot = new Map<string, number>()
     const grouped = new Map<string, MergedStudent>()
 
-    classFiltered.forEach((r) => {
+    dateFilteredRows.forEach((r) => {
       const cls = normalizeClassName(r.kelas) || 'TANPA-KELAS'
-      const absenNum = Number(r.no_absen)
-      const hasValidAbsen = !isNaN(absenNum) && absenNum >= 1 && absenNum <= 45
       const cleanEmail = (r.email || '').trim().toLowerCase()
       const cleanName = (r.nama || 'Tanpa Nama').trim()
+      const cleanNameNorm = normalizeStudentName(cleanName)
+      const prefix = cleanNameNorm.split(' ').slice(0, 2).join(' ')
 
+      let absenNum = Number(r.no_absen)
+      if (isNaN(absenNum) || absenNum < 1 || absenNum > TOTAL_ABSEN_PER_KELAS) {
+        absenNum =
+          emailToAbsen.get(`${cls}::${cleanEmail}`) ??
+          nameToAbsen.get(`${cls}::${cleanNameNorm}`) ??
+          prefixToAbsen.get(`${cls}::${prefix}`) ??
+          0
+      }
+
+      // Alokasikan entri no_absen = 0 yang belum cocok ke slot kosong 1..36 di kelasnya
+      if (absenNum === 0 && cls !== 'TANPA-KELAS') {
+        const orphanId = `${cls}::${cleanNameNorm || cleanEmail || r.id}`
+        if (orphanKeyToSlot.has(orphanId)) {
+          absenNum = orphanKeyToSlot.get(orphanId)!
+        } else {
+          const used = usedAbsenByClass.get(cls) || new Set<number>()
+          for (let slot = 1; slot <= TOTAL_ABSEN_PER_KELAS; slot++) {
+            if (!used.has(slot)) {
+              absenNum = slot
+              used.add(slot)
+              usedAbsenByClass.set(cls, used)
+              orphanKeyToSlot.set(orphanId, slot)
+              break
+            }
+          }
+        }
+      }
+
+      const hasValidAbsen = absenNum >= 1 && absenNum <= TOTAL_ABSEN_PER_KELAS
       const key = hasValidAbsen
         ? `${cls}::ABSEN-${absenNum}`
-        : cleanEmail
-        ? `${cls}::EMAIL-${cleanEmail}`
-        : `${cls}::NAMA-${cleanName.toLowerCase()}`
+        : `${cls}::ABSEN-${TOTAL_ABSEN_PER_KELAS}`
 
       const rowAvg = getRowAverage(r)
 
       if (!grouped.has(key)) {
         grouped.set(key, {
           key,
-          no_absen: hasValidAbsen ? absenNum : null,
+          no_absen: hasValidAbsen ? absenNum : TOTAL_ABSEN_PER_KELAS,
           nama: cleanName,
           kelas: cls,
           email: r.email || '-',
@@ -205,7 +248,7 @@ export default function AdminDatabasePage() {
         existing.submissions.push(r)
         existing.fillCount = existing.submissions.length
 
-        if (cleanName.length > existing.nama.length) {
+        if (cleanName.length > existing.nama.length && !cleanName.includes('@')) {
           existing.nama = cleanName
         }
         if ((!existing.email || existing.email === '-') && r.email) {
@@ -230,13 +273,33 @@ export default function AdminDatabasePage() {
       }
     })
 
-    if (selectedClass !== 'ALL') {
-      const maxAbsenInData = Array.from(grouped.values()).reduce(
-        (max, s) => (s.no_absen && s.no_absen > max ? s.no_absen : max),
-        TOTAL_ABSEN_PER_KELAS
-      )
+    return grouped
+  }, [dateFilteredRows])
 
-      for (let absen = 1; absen <= maxAbsenInData; absen++) {
+  // Hitungan siswa unik per kelas (terkunci maksimal 36/36)
+  const uniqueFilledCountByClass = useMemo(() => {
+    const counts: Record<string, number> = {}
+    allMergedStudents.forEach((student) => {
+      if (student.fillCount > 0) {
+        counts[student.kelas] = Math.min(
+          TOTAL_ABSEN_PER_KELAS,
+          (counts[student.kelas] || 0) + 1
+        )
+      }
+    })
+    return counts
+  }, [allMergedStudents])
+
+  const mergedStudents = useMemo(() => {
+    const filteredList = Array.from(allMergedStudents.values()).filter((s) =>
+      selectedClass === 'ALL' ? true : s.kelas === selectedClass
+    )
+
+    const grouped = new Map<string, MergedStudent>()
+    filteredList.forEach((s) => grouped.set(s.key, s))
+
+    if (selectedClass !== 'ALL') {
+      for (let absen = 1; absen <= TOTAL_ABSEN_PER_KELAS; absen++) {
         const slotKey = `${selectedClass}::ABSEN-${absen}`
         if (!grouped.has(slotKey)) {
           grouped.set(slotKey, {
@@ -259,7 +322,7 @@ export default function AdminDatabasePage() {
       if (clsCmp !== 0) return clsCmp
       return (a.no_absen ?? 999) - (b.no_absen ?? 999)
     })
-  }, [dateFilteredRows, selectedClass])
+  }, [allMergedStudents, selectedClass])
 
   const classSummaryStats = useMemo(() => {
     const filled = mergedStudents.filter((s) => s.fillCount > 0).length
